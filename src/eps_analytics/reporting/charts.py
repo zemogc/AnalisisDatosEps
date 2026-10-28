@@ -284,6 +284,48 @@ def grafico_pronostico(res: ResultadoAnalisis, ruta: Path) -> Path:
     return _guardar(fig, ruta)
 
 
+def grafico_piramide(res: ResultadoAnalisis, ruta: Path) -> Path:
+    pir = res.piramide
+    niveles = list(pir.index)
+    y = np.arange(len(niveles))
+    alto = 0.36
+    fig, ax = plt.subplots(figsize=(10, 4.8))
+    series = [
+        ("Participacion_Pacientes", "% de pacientes", AZUL, alto / 2 + 0.01),
+        ("Participacion_Gasto", "% del gasto", NARANJA, -alto / 2 - 0.01),
+    ]
+    for columna, etiqueta, color, desplazamiento in series:
+        barras = ax.barh(y + desplazamiento, pir[columna], height=alto, color=color, label=etiqueta)
+        ax.bar_label(
+            barras, labels=[fmt.porcentaje(v) for v in pir[columna]], padding=5, color=TEXT_2, fontsize=9
+        )
+    etiquetas = [
+        f"{n}\n{fmt.cop_compacto(g)} por paciente"
+        for n, g in zip(niveles, pir["Gasto_Por_Paciente"], strict=True)
+    ]
+    ax.set_yticks(y, etiquetas)
+    ax.set_xlim(0, 1)
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: fmt.porcentaje(v, 0)))
+    ax.grid(axis="y", visible=False)
+    ax.tick_params(axis="y", length=0)
+    ax.set_title("Pirámide de riesgo: pacientes frente a gasto")
+    ax.legend(loc="lower right")
+    val = res.validacion_riesgo
+    if not val.empty:
+        razon = fmt.numero(val["Razon_vs_Nivel_1"].iloc[-1], 1)
+        ax.text(
+            0.99,
+            0.97,
+            f"Validación prospectiva: el nivel 3 gasta {razon}x más que el nivel 1 en el periodo siguiente",
+            transform=ax.transAxes,
+            ha="right",
+            va="top",
+            fontsize=8.5,
+            color=TEXT_2,
+        )
+    return _guardar(fig, ruta)
+
+
 GRAFICOS = {
     "costo_por_eps.png": grafico_costo_eps,
     "costo_por_diagnostico.png": grafico_costo_diagnostico,
@@ -292,6 +334,7 @@ GRAFICOS = {
     "heatmap_eps_diagnostico.png": grafico_heatmap,
     "distribucion_costos.png": grafico_distribucion,
     "pronostico_mensual.png": grafico_pronostico,
+    "piramide_riesgo.png": grafico_piramide,
 }
 
 

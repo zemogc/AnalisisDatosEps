@@ -14,7 +14,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from eps_analytics import analysis as an
-from eps_analytics import database, synthetic
+from eps_analytics import database, riesgo, synthetic
 from eps_analytics import forecast as fc
 from eps_analytics import formatting as fmt
 from eps_analytics.config import load_settings
@@ -385,6 +385,67 @@ with tab_pac:
     st.subheader("Pacientes de alto costo (percentil 99)")
     alto = an.pacientes_alto_costo(df)
     st.dataframe(alto.assign(Gasto_Total=alto["Gasto_Total"].map(fmt.cop)), hide_index=True, width="stretch")
+
+    st.subheader("Pirámide de riesgo")
+    estratos = riesgo.estratificar(df)
+    piramide = riesgo.resumen_piramide(estratos).reset_index()
+    izq, der = st.columns([1.3, 1])
+    largo = piramide.melt(
+        id_vars="Nivel",
+        value_vars=["Participacion_Pacientes", "Participacion_Gasto"],
+        var_name="Medida",
+        value_name="Participacion",
+    )
+    largo["Medida"] = largo["Medida"].map(
+        {"Participacion_Pacientes": "% de pacientes", "Participacion_Gasto": "% del gasto"}
+    )
+    fig = px.bar(
+        largo,
+        x="Participacion",
+        y="Nivel",
+        color="Medida",
+        barmode="group",
+        orientation="h",
+        title="Pacientes frente a gasto por nivel de riesgo",
+        color_discrete_map={"% de pacientes": AZUL, "% del gasto": NARANJA},
+        category_orders={"Nivel": riesgo.NIVELES[::-1]},
+        text=largo["Participacion"].map(fmt.porcentaje),
+    )
+    fig.update_traces(
+        textposition="outside", cliponaxis=False, hovertemplate="%{y}<br>%{x:.1%}<extra></extra>"
+    )
+    fig.update_layout(xaxis={"title": None, "tickformat": ".0%", "range": [0, 1]}, yaxis_title=None)
+    izq.plotly_chart(estilo(fig, 360), width="stretch")
+
+    with der:
+        st.markdown(
+            "**Cómo se calcula.** Puntaje explicable: edad, condiciones crónicas (más peso a las de "
+            "alto costo), multimorbilidad, urgencias, frecuencia de uso y percentil de gasto. "
+            f"Nivel 3 desde {riesgo.CORTE_NIVEL_3} puntos, nivel 2 desde {riesgo.CORTE_NIVEL_2}."
+        )
+        if df["Mes"].nunique() >= 6:
+            validacion = riesgo.validar_prospectivo(df)
+            st.metric(
+                "Validación prospectiva",
+                f"{fmt.numero(validacion['Razon_vs_Nivel_1'].iloc[-1], 1)}x",
+                "gasto futuro del nivel 3 frente al nivel 1",
+                delta_color="off",
+                delta_arrow="off",
+            )
+            st.caption(
+                "Se estratifica con la primera mitad del periodo y se mide el gasto de la segunda mitad."
+            )
+
+    casos = estratos[estratos["Nivel"] == riesgo.NIVELES[-1]].reset_index()
+    st.markdown(f"**Pacientes para gestión de caso ({fmt.numero(len(casos))})**")
+    st.dataframe(
+        casos[
+            ["ID_Paciente", "EPS", "Edad", "Sexo", "Puntaje", "Factores", "Consultas", "Gasto_Total"]
+        ].assign(Gasto_Total=casos["Gasto_Total"].map(fmt.cop)),
+        hide_index=True,
+        width="stretch",
+        height=300,
+    )
 
 # ----------------------------------------------------------------- medicamentos
 with tab_med:

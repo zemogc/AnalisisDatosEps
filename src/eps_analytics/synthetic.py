@@ -229,6 +229,17 @@ TIPOS_ATENCION = {
     "Urgencias": (0.13, 260_000),
 }
 
+# Prevalencia de condiciones crónicas por grupo etario (0-17, 18-44, 45-64, 65+).
+# Un paciente con la condición vuelve a consultar por ella; uno sin ella casi nunca.
+PREVALENCIA_CRONICA = {
+    "I10": (0.0, 0.08, 0.30, 0.55),
+    "E11.9": (0.0, 0.03, 0.14, 0.22),
+    "J45.9": (0.08, 0.05, 0.05, 0.05),
+    "F41.1": (0.02, 0.08, 0.07, 0.05),
+    "I25.1": (0.0, 0.005, 0.04, 0.10),
+    "C50.9": (0.0, 0.005, 0.02, 0.03),
+}
+
 # Meses con mayor carga respiratoria en Colombia (temporadas de lluvia)
 MESES_LLUVIA = {4, 5, 10, 11}
 
@@ -287,8 +298,16 @@ def generar_consultas(
 ) -> pd.DataFrame:
     edad = pacientes["Edad"].to_numpy()
     grupo = _grupo_edad(edad)
-    # Pacientes mayores consultan más
-    lam = np.array([2.6, 2.0, 3.4, 5.0])[grupo] * (fin - inicio).days / 365
+    # Condiciones crónicas asignadas al paciente, no a cada consulta
+    cronicos = [i for i, d in enumerate(DIAGNOSTICOS) if d.codigo in PREVALENCIA_CRONICA]
+    prevalencia = np.array([PREVALENCIA_CRONICA[DIAGNOSTICOS[i].codigo] for i in cronicos])
+    tiene = rng.random((len(pacientes), len(cronicos))) < prevalencia[:, grupo].T
+    solo_mujeres = np.array([DIAGNOSTICOS[i].solo_mujeres for i in cronicos])
+    tiene[:, solo_mujeres] &= (pacientes["Sexo"].to_numpy() == "F")[:, None]
+
+    # Pacientes mayores y con más condiciones crónicas consultan más
+    lam = np.array([2.4, 1.8, 2.6, 3.4])[grupo] * (fin - inicio).days / 365
+    lam *= 1 + 0.6 * tiene.sum(axis=1)
     n_por_paciente = np.maximum(rng.poisson(lam), 1)
     idx = np.repeat(np.arange(len(pacientes)), n_por_paciente)
     n = len(idx)
@@ -304,6 +323,9 @@ def generar_consultas(
     resp = np.array([d.respiratorio for d in DIAGNOSTICOS])
     pesos[np.ix_(np.isin(meses, list(MESES_LLUVIA)), resp)] *= 1.9
     pesos[np.ix_(~mujeres, np.array([d.solo_mujeres for d in DIAGNOSTICOS]))] = 0
+    pesos[:, cronicos] = np.where(
+        tiene[idx], np.maximum(pesos[:, cronicos] * 8.0, 2.0), pesos[:, cronicos] * 0.03
+    )
     acumulado = (pesos / pesos.sum(axis=1, keepdims=True)).cumsum(axis=1)
     dx_idx = (rng.random((n, 1)) > acumulado).sum(axis=1)
     dx_idx = np.minimum(dx_idx, len(DIAGNOSTICOS) - 1)
