@@ -3,7 +3,7 @@
 # 🏥 EPS Analytics
 
 **Análisis de costos de atención en salud por EPS en Colombia**
-ETL desde SQL Server o SQLite · KPIs y estadística · reporte Excel automatizado · dashboard interactivo
+ETL desde SQL Server o SQLite · KPIs y estadística · pronóstico · reporte Excel automatizado · dashboard interactivo
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![pandas](https://img.shields.io/badge/pandas-2.x-150458?logo=pandas&logoColor=white)
@@ -11,7 +11,7 @@ ETL desde SQL Server o SQLite · KPIs y estadística · reporte Excel automatiza
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-D71F00?logo=sqlalchemy&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-dashboard-FF4B4B?logo=streamlit&logoColor=white)
 ![Plotly](https://img.shields.io/badge/Plotly-interactivo-3F4F75?logo=plotly&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-40%20passed-2ea44f)
+![Tests](https://img.shields.io/badge/tests-53%20passed-2ea44f)
 ![Coverage](https://img.shields.io/badge/coverage-98%25-2ea44f)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
@@ -53,6 +53,7 @@ completo y probado**:
 - un **modelo relacional** en T-SQL con restricciones, índices y vistas analíticas,
 - un **generador de datos sintéticos** realista para trabajar sin datos sensibles,
 - un **motor de indicadores** con funciones puras y probadas,
+- un **modelo de pronóstico** de costo y consultas, validado con backtest,
 - un **reporte Excel** listo para gerencia y un **dashboard web** con filtros.
 
 > [!NOTE]
@@ -65,9 +66,10 @@ completo y probado**:
 | **Acceso a datos** | SQLAlchemy 2.0. El mismo código funciona con **SQL Server** (pyodbc) en producción y **SQLite** en local o en pruebas. |
 | **Datos sintéticos** | 8 EPS con su participación de mercado, régimen contributivo/subsidiado, 10 ciudades, 12 diagnósticos CIE-10 con prevalencia según edad y sexo, estacionalidad de lluvias, medicamentos por diagnóstico y eventos de alto costo. Usa una semilla, así que siempre produce los mismos datos. |
 | **Indicadores** | KPIs globales; resúmenes por EPS, diagnóstico (Pareto), grupo etario × sexo y tipo de atención; tendencia mensual con media móvil; matriz EPS × diagnóstico; top de medicamentos; consultas atípicas (Tukey en escala log); pacientes de alto costo; concentración del gasto. |
-| **Reporte Excel** | 11 hojas con formato de moneda, encabezados, filtros, paneles congelados y **gráficos nativos de Excel**. |
-| **Gráficos** | 6 PNG listos para presentaciones, con una paleta validada para daltonismo, sin doble eje y con etiquetas directas. |
-| **Dashboard** | Streamlit + Plotly: filtros por periodo, EPS, régimen, tipo de atención, sexo y edad; 6 pestañas; descarga en CSV/Excel. |
+| **Pronóstico** | Costo y consultas de los próximos meses con intervalos del 90 %. El costo se modela como frecuencia × severidad: consultas con tendencia y estacionalidad, y costo promedio con tendencia robusta (Huber). Se valida con un backtest frente al ingenuo estacional. |
+| **Reporte Excel** | 12 hojas con formato de moneda, encabezados, filtros, paneles congelados y **gráficos nativos de Excel**. |
+| **Gráficos** | 7 PNG listos para presentaciones, con una paleta validada para daltonismo, sin doble eje y con etiquetas directas. |
+| **Dashboard** | Streamlit + Plotly: filtros por periodo, EPS, régimen, tipo de atención, sexo y edad; 7 pestañas, entre ellas una de pronóstico con horizonte ajustable; descarga en CSV/Excel. |
 | **SQL** | Esquema, vistas (`vw_CostoConsulta`, `vw_ResumenEPS`) y consultas analíticas con funciones de ventana (Pareto, `LAG`, top 1 %). |
 
 ## Hallazgos con los datos de demostración
@@ -85,6 +87,8 @@ Con la base por defecto (2.000 pacientes, 11.085 consultas, 2024-2025):
 - 🌧️ **Las consultas por infección respiratoria se duplican** en abril-mayo y octubre-noviembre,
   las dos temporadas de lluvias.
 - 🚑 **Urgencias** representa el 13 % de las consultas pero el **30 % del costo**.
+- 🔮 **Costo esperado para enero-junio de 2026: $ 426 millones.** En el backtest de 6 meses, el modelo
+  se equivoca en promedio un **6,4 %**, frente a un 9,4 % del ingenuo estacional.
 
 ## Capturas
 
@@ -94,9 +98,9 @@ Con la base por defecto (2.000 pacientes, 11.085 consultas, 2024-2025):
 |---|---|
 | ![EPS](docs/images/dashboard_eps.png) | ![Diagnósticos](docs/images/dashboard_diagnosticos.png) |
 
-| Pacientes | Resumen |
+| Pacientes | Pronóstico |
 |---|---|
-| ![Pacientes](docs/images/dashboard_pacientes.png) | ![Resumen](docs/images/dashboard_resumen.png) |
+| ![Pacientes](docs/images/dashboard_pacientes.png) | ![Pronóstico](docs/images/dashboard_pronostico.png) |
 
 ### Gráficos del reporte (`eps-analytics report`)
 
@@ -107,6 +111,9 @@ Con la base por defecto (2.000 pacientes, 11.085 consultas, 2024-2025):
 <p align="center">
   <img src="docs/images/tendencia_mensual.png" alt="Tendencia mensual" width="49%">
   <img src="docs/images/costo_grupo_etario_sexo.png" alt="Costo por grupo etario y sexo" width="49%">
+</p>
+<p align="center">
+  <img src="docs/images/pronostico_mensual.png" alt="Pronóstico mensual de consultas y costo" width="80%">
 </p>
 <p align="center">
   <img src="docs/images/heatmap_eps_diagnostico.png" alt="Heatmap EPS por diagnóstico" width="49%">
@@ -125,8 +132,9 @@ flowchart LR
     end
     A & B --> D[database.py<br/>SQLAlchemy · consulta agregada]
     D --> E[analysis.py<br/>funciones puras de KPIs]
-    E --> F[reporting/excel.py<br/>11 hojas + gráficos nativos]
-    E --> G[reporting/charts.py<br/>6 PNG]
+    E <--> P[forecast.py<br/>frecuencia × severidad]
+    E --> F[reporting/excel.py<br/>12 hojas + gráficos nativos]
+    E --> G[reporting/charts.py<br/>7 PNG]
     E --> H[dashboard/app.py<br/>Streamlit + Plotly]
     C[cli.py] --> D
 ```
@@ -246,6 +254,8 @@ $ eps-analytics report
 00:12:03 INFO    Costo total: $ 1.724.475.000 | Promedio/consulta: $ 155.568 | Mediana/consulta: $ 95.300
 00:12:03 INFO    El 5 % de pacientes más costosos concentra 25,3 % del gasto
 00:12:03 INFO    Consultas atípicas detectadas: 18
+00:12:03 INFO    Costo pronosticado próximos 6 meses: $ 426.115.153
+00:12:03 INFO    Backtest costo: MAPE 6,4 % (ingenuo estacional 9,4 %)
 00:12:07 INFO    Excel: output/reporte_eps.xlsx
 ```
 
@@ -257,6 +267,7 @@ $ eps-analytics report
 | Por EPS | Pacientes, consultas, costo total, promedio, mediana, costo por paciente y participación |
 | Por Diagnóstico | Ranking por código CIE-10 con participación acumulada (Pareto) |
 | Tendencia Mensual | Consultas, costo, variación mensual y media móvil de 3 meses |
+| Pronóstico | Consultas y costo esperados con límites inferior y superior (90 %) |
 | Grupo Etario | Costos por grupo etario y sexo |
 | Tipo de Atención | Medicina general, especialista y urgencias |
 | Matriz EPS x Dx | Costo promedio por consulta para cada combinación |
@@ -274,6 +285,12 @@ $ eps-analytics report
 - **Atípicos en escala logarítmica.** Los costos en salud son muy asimétricos. Con el criterio de
   Tukey sobre valores lineales, casi toda consulta de urgencias saldría como atípica. Sobre
   `log(costo)` con k = 3 se detectan los eventos realmente excepcionales.
+- **Pronóstico como frecuencia × severidad.** Con solo 24 meses, un modelo con un efecto por mes
+  toma un evento de alto costo aislado como si fuera "estacionalidad". La primera versión cometía
+  ese error y en el backtest quedaba peor que el ingenuo (14,6 % frente a 9,4 % de MAPE).
+  Separar el volumen, que sí es estacional, del costo promedio, que se proyecta con una
+  tendencia robusta, bajó el error a 6,4 %. Los intervalos se calculan en escala logarítmica, así
+  que son asimétricos y nunca negativos.
 - **Mediana junto a la media.** Con colas largas, la media sola engaña, así que el reporte muestra
   ambas.
 - **Funciones puras.** `analysis.py` no hace E/S, lo que permite probarlo con DataFrames pequeños
@@ -292,7 +309,7 @@ $ eps-analytics report
 
 ```bash
 pip install -r requirements-dev.txt
-pytest --cov            # 40 pruebas, 98 % de cobertura
+pytest --cov            # 53 pruebas, 98 % de cobertura
 ruff check . && ruff format --check .
 ```
 
@@ -301,6 +318,8 @@ Las pruebas cubren:
 - Integridad referencial y dominios válidos de los datos generados.
 - Reproducibilidad con la misma semilla.
 - KPIs verificados contra valores calculados a mano.
+- Pronóstico: recuperación exacta de tendencia y estacionalidad conocidas, robustez ante eventos
+  extremos e intervalos coherentes.
 - La regresión del JOIN duplicado.
 - Contenido y formato del Excel y generación de los gráficos.
 - El flujo completo de la CLI (`seed` → `report`).
@@ -319,6 +338,7 @@ AnalisisDatosEps/
 │   ├── database.py         # esquema SQLAlchemy y consultas
 │   ├── synthetic.py        # generador de datos realistas
 │   ├── analysis.py         # KPIs y agregaciones (funciones puras)
+│   ├── forecast.py         # pronóstico frecuencia × severidad con backtest
 │   ├── formatting.py       # formato de moneda y porcentajes (es-CO)
 │   └── reporting/
 │       ├── excel.py        # reporte multi-hoja con gráficos nativos
@@ -333,7 +353,7 @@ AnalisisDatosEps/
 
 ## Hoja de ruta
 
-- [ ] Pronóstico del costo mensual (SARIMA / Prophet) con intervalos de confianza.
+- [x] Pronóstico del costo mensual con intervalos y backtest.
 - [ ] Segmentación de pacientes por patrón de uso (K-Means).
 - [ ] Carga incremental desde archivos RIPS.
 - [ ] Contenedor Docker con SQL Server para un entorno de punta a punta.

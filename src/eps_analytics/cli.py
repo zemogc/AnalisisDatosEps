@@ -78,6 +78,19 @@ def _report(args: argparse.Namespace) -> int:
         "El 5 %% de pacientes más costosos concentra %s del gasto", fmt.porcentaje(res.concentracion_top5)
     )
     log.info("Consultas atípicas detectadas: %d", len(res.atipicos))
+    if res.pronostico:
+        costo = res.pronostico["Costo_Total"]
+        log.info(
+            "Costo pronosticado próximos %d meses: %s",
+            len(costo.tabla),
+            fmt.cop(costo.tabla["Pronostico"].sum()),
+        )
+        if costo.mape_modelo is not None:
+            log.info(
+                "Backtest costo: MAPE %s (ingenuo estacional %s)",
+                fmt.porcentaje(costo.mape_modelo),
+                fmt.porcentaje(costo.mape_ingenuo),
+            )
 
     excel = generar_excel(res, salida / "reporte_eps.xlsx")
     log.info("Excel: %s", excel)
