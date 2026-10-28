@@ -78,6 +78,12 @@ def _report(args: argparse.Namespace) -> int:
         "El 5 %% de pacientes más costosos concentra %s del gasto", fmt.porcentaje(res.concentracion_top5)
     )
     log.info("Consultas atípicas detectadas: %d", len(res.atipicos))
+    nivel_3 = res.piramide.iloc[-1]
+    log.info(
+        "Pirámide de riesgo: nivel 3 = %s de los pacientes y %s del gasto",
+        fmt.porcentaje(nivel_3["Participacion_Pacientes"]),
+        fmt.porcentaje(nivel_3["Participacion_Gasto"]),
+    )
     if res.pronostico:
         costo = res.pronostico["Costo_Total"]
         log.info(

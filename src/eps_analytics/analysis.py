@@ -174,13 +174,18 @@ class ResultadoAnalisis:
     alto_costo: pd.DataFrame
     concentracion_top5: float
     pronostico: dict = field(default_factory=dict)
+    estratos: pd.DataFrame = field(default_factory=pd.DataFrame)
+    piramide: pd.DataFrame = field(default_factory=pd.DataFrame)
+    validacion_riesgo: pd.DataFrame = field(default_factory=pd.DataFrame)
 
 
 def ejecutar_analisis(consultas: pd.DataFrame, meds: pd.DataFrame, horizonte: int = 6) -> ResultadoAnalisis:
+    from eps_analytics import riesgo
     from eps_analytics.forecast import pronosticar_mensual
 
     df = preparar(consultas)
     mensual = tendencia_mensual(df)
+    estratos = riesgo.estratificar(df)
     return ResultadoAnalisis(
         datos=df,
         kpis=calcular_kpis(df),
@@ -195,4 +200,7 @@ def ejecutar_analisis(consultas: pd.DataFrame, meds: pd.DataFrame, horizonte: in
         alto_costo=pacientes_alto_costo(df),
         concentracion_top5=concentracion_gasto(df, 0.05),
         pronostico=pronosticar_mensual(mensual, horizonte) if len(mensual) >= 4 else {},
+        estratos=estratos,
+        piramide=riesgo.resumen_piramide(estratos),
+        validacion_riesgo=riesgo.validar_prospectivo(df) if len(mensual) >= 6 else pd.DataFrame(),
     )

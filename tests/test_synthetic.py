@@ -60,3 +60,11 @@ def test_coherencia_clinica(tablas):
 def test_parametros_invalidos(kwargs):
     with pytest.raises(ValueError):
         synthetic.generar_datos(**kwargs)
+
+
+def test_condiciones_cronicas_persisten_entre_consultas(tablas):
+    """Un hipertenso vuelve a consultar por hipertensión; no es un sorteo independiente por consulta."""
+    c = tablas["ConsultasMedicas"]
+    frecuentes = c.groupby("ID_Paciente").filter(lambda g: len(g) >= 3)
+    proporcion = frecuentes.groupby("ID_Paciente")["Codigo_CIE10"].apply(lambda s: (s == "I10").mean())
+    assert proporcion[proporcion > 0].mean() > 0.3

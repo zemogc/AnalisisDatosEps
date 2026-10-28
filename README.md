@@ -3,7 +3,7 @@
 # 🏥 EPS Analytics
 
 **Análisis de costos de atención en salud por EPS en Colombia**
-ETL desde SQL Server o SQLite · KPIs y estadística · pronóstico · reporte Excel automatizado · dashboard interactivo
+ETL desde SQL Server o SQLite · KPIs y estadística · pirámide de riesgo · pronóstico · reporte Excel automatizado · dashboard interactivo
 
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![pandas](https://img.shields.io/badge/pandas-2.x-150458?logo=pandas&logoColor=white)
@@ -11,7 +11,7 @@ ETL desde SQL Server o SQLite · KPIs y estadística · pronóstico · reporte E
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-D71F00?logo=sqlalchemy&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-dashboard-FF4B4B?logo=streamlit&logoColor=white)
 ![Plotly](https://img.shields.io/badge/Plotly-interactivo-3F4F75?logo=plotly&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-53%20passed-2ea44f)
+![Tests](https://img.shields.io/badge/tests-61%20passed-2ea44f)
 ![Coverage](https://img.shields.io/badge/coverage-98%25-2ea44f)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
@@ -53,6 +53,7 @@ completo y probado**:
 - un **modelo relacional** en T-SQL con restricciones, índices y vistas analíticas,
 - un **generador de datos sintéticos** realista para trabajar sin datos sensibles,
 - un **motor de indicadores** con funciones puras y probadas,
+- una **pirámide de riesgo** explicable, validada de forma prospectiva,
 - un **modelo de pronóstico** de costo y consultas, validado con backtest,
 - un **reporte Excel** listo para gerencia y un **dashboard web** con filtros.
 
@@ -64,31 +65,35 @@ completo y probado**:
 | Módulo | Qué hace |
 |---|---|
 | **Acceso a datos** | SQLAlchemy 2.0. El mismo código funciona con **SQL Server** (pyodbc) en producción y **SQLite** en local o en pruebas. |
-| **Datos sintéticos** | 8 EPS con su participación de mercado, régimen contributivo/subsidiado, 10 ciudades, 12 diagnósticos CIE-10 con prevalencia según edad y sexo, estacionalidad de lluvias, medicamentos por diagnóstico y eventos de alto costo. Usa una semilla, así que siempre produce los mismos datos. |
+| **Datos sintéticos** | 8 EPS con su participación de mercado, régimen contributivo/subsidiado, 10 ciudades, 12 diagnósticos CIE-10 con prevalencia según edad y sexo, condiciones crónicas que persisten en cada paciente, estacionalidad de lluvias, medicamentos por diagnóstico y eventos de alto costo. Usa una semilla, así que siempre produce los mismos datos. |
 | **Indicadores** | KPIs globales; resúmenes por EPS, diagnóstico (Pareto), grupo etario × sexo y tipo de atención; tendencia mensual con media móvil; matriz EPS × diagnóstico; top de medicamentos; consultas atípicas (Tukey en escala log); pacientes de alto costo; concentración del gasto. |
+| **Pirámide de riesgo** | Clasifica a cada paciente en 3 niveles (promoción y prevención, gestión de enfermedad, gestión de caso) con un puntaje explicable: edad, condiciones crónicas, multimorbilidad, urgencias, frecuencia de uso y gasto. Cada paciente lleva la lista de factores que explican su nivel. Se valida estratificando con un periodo y midiendo el gasto del siguiente. |
 | **Pronóstico** | Costo y consultas de los próximos meses con intervalos del 90 %. El costo se modela como frecuencia × severidad: consultas con tendencia y estacionalidad, y costo promedio con tendencia robusta (Huber). Se valida con un backtest frente al ingenuo estacional. |
-| **Reporte Excel** | 12 hojas con formato de moneda, encabezados, filtros, paneles congelados y **gráficos nativos de Excel**. |
-| **Gráficos** | 7 PNG listos para presentaciones, con una paleta validada para daltonismo, sin doble eje y con etiquetas directas. |
+| **Reporte Excel** | 14 hojas con formato de moneda, encabezados, filtros, paneles congelados y **gráficos nativos de Excel**. |
+| **Gráficos** | 8 PNG listos para presentaciones, con una paleta validada para daltonismo, sin doble eje y con etiquetas directas. |
 | **Dashboard** | Streamlit + Plotly: filtros por periodo, EPS, régimen, tipo de atención, sexo y edad; 7 pestañas, entre ellas una de pronóstico con horizonte ajustable; descarga en CSV/Excel. |
 | **SQL** | Esquema, vistas (`vw_CostoConsulta`, `vw_ResumenEPS`) y consultas analíticas con funciones de ventana (Pareto, `LAG`, top 1 %). |
 
 ## Hallazgos con los datos de demostración
 
-Con la base por defecto (2.000 pacientes, 11.085 consultas, 2024-2025):
+Con la base por defecto (2.000 pacientes, 11.389 consultas, 2024-2025):
 
-- 💰 **Costo total: $ 1.724 millones**, con un costo mediano por consulta de $ 95.300 y uno promedio
-  de $ 155.568. La diferencia entre ambos muestra una distribución con cola larga.
-- 📊 **Tres diagnósticos concentran el 47 % del gasto**: infección respiratoria aguda (20 %),
-  diabetes tipo 2 (14 %) e hipertensión (13 %).
-- 👴 **Un paciente de 60 años o más cuesta 3,1 veces más** que uno de 18 a 29 años
-  ($ 1,76 M frente a $ 0,57 M).
-- 🎯 **El 5 % de los pacientes más costosos genera el 25 % del gasto**, y **18 consultas atípicas
-  (0,16 %) suman el 11,7 %** del costo total.
+- 💰 **Costo total: $ 1.574 millones**, con un costo mediano por consulta de $ 91.700 y uno promedio
+  de $ 138.246. La diferencia entre ambos muestra una distribución con cola larga.
+- 📊 **Tres diagnósticos concentran el 53 % del gasto**: infección respiratoria aguda (23 %),
+  hipertensión (17 %) y diabetes tipo 2 (13 %).
+- 🔺 **El 9,6 % de los pacientes (nivel 3 de la pirámide de riesgo) genera el 28 % del gasto.** El
+  puntaje es predictivo: calculado solo con 2024, los pacientes de nivel 3 **gastaron 3,7 veces más
+  en 2025** que los de nivel 1.
+- 👴 **Un paciente de 60 años o más cuesta 2,6 veces más** que uno de 18 a 29 años
+  ($ 1,46 M frente a $ 0,56 M).
+- 🎯 **El 5 % de los pacientes más costosos genera el 23 % del gasto**, y **17 consultas atípicas
+  (0,15 %) suman el 6,9 %** del costo total.
 - 🌧️ **Las consultas por infección respiratoria se duplican** en abril-mayo y octubre-noviembre,
   las dos temporadas de lluvias.
 - 🚑 **Urgencias** representa el 13 % de las consultas pero el **30 % del costo**.
-- 🔮 **Costo esperado para enero-junio de 2026: $ 426 millones.** En el backtest de 6 meses, el modelo
-  se equivoca en promedio un **6,4 %**, frente a un 9,4 % del ingenuo estacional.
+- 🔮 **Costo esperado para enero-junio de 2026: $ 379 millones.** En el backtest de 6 meses, el modelo
+  se equivoca en promedio un **5,5 %**, frente a un 7,5 % del ingenuo estacional.
 
 ## Capturas
 
@@ -98,9 +103,9 @@ Con la base por defecto (2.000 pacientes, 11.085 consultas, 2024-2025):
 |---|---|
 | ![EPS](docs/images/dashboard_eps.png) | ![Diagnósticos](docs/images/dashboard_diagnosticos.png) |
 
-| Pacientes | Pronóstico |
+| Pirámide de riesgo | Pronóstico |
 |---|---|
-| ![Pacientes](docs/images/dashboard_pacientes.png) | ![Pronóstico](docs/images/dashboard_pronostico.png) |
+| ![Pirámide de riesgo](docs/images/dashboard_riesgo.png) | ![Pronóstico](docs/images/dashboard_pronostico.png) |
 
 ### Gráficos del reporte (`eps-analytics report`)
 
@@ -113,7 +118,8 @@ Con la base por defecto (2.000 pacientes, 11.085 consultas, 2024-2025):
   <img src="docs/images/costo_grupo_etario_sexo.png" alt="Costo por grupo etario y sexo" width="49%">
 </p>
 <p align="center">
-  <img src="docs/images/pronostico_mensual.png" alt="Pronóstico mensual de consultas y costo" width="80%">
+  <img src="docs/images/pronostico_mensual.png" alt="Pronóstico mensual de consultas y costo" width="49%">
+  <img src="docs/images/piramide_riesgo.png" alt="Pirámide de riesgo" width="49%">
 </p>
 <p align="center">
   <img src="docs/images/heatmap_eps_diagnostico.png" alt="Heatmap EPS por diagnóstico" width="49%">
@@ -133,8 +139,9 @@ flowchart LR
     A & B --> D[database.py<br/>SQLAlchemy · consulta agregada]
     D --> E[analysis.py<br/>funciones puras de KPIs]
     E <--> P[forecast.py<br/>frecuencia × severidad]
-    E --> F[reporting/excel.py<br/>12 hojas + gráficos nativos]
-    E --> G[reporting/charts.py<br/>7 PNG]
+    E <--> R[riesgo.py<br/>pirámide de riesgo]
+    E --> F[reporting/excel.py<br/>14 hojas + gráficos nativos]
+    E --> G[reporting/charts.py<br/>8 PNG]
     E --> H[dashboard/app.py<br/>Streamlit + Plotly]
     C[cli.py] --> D
 ```
@@ -250,12 +257,13 @@ Ejemplo de salida:
 
 ```text
 $ eps-analytics report
-00:12:03 INFO    Pacientes: 2.000 | Consultas: 11.085
-00:12:03 INFO    Costo total: $ 1.724.475.000 | Promedio/consulta: $ 155.568 | Mediana/consulta: $ 95.300
-00:12:03 INFO    El 5 % de pacientes más costosos concentra 25,3 % del gasto
-00:12:03 INFO    Consultas atípicas detectadas: 18
-00:12:03 INFO    Costo pronosticado próximos 6 meses: $ 426.115.153
-00:12:03 INFO    Backtest costo: MAPE 6,4 % (ingenuo estacional 9,4 %)
+00:12:03 INFO    Pacientes: 2.000 | Consultas: 11.389
+00:12:03 INFO    Costo total: $ 1.574.488.300 | Promedio/consulta: $ 138.246 | Mediana/consulta: $ 91.700
+00:12:03 INFO    El 5 % de pacientes más costosos concentra 23,2 % del gasto
+00:12:03 INFO    Consultas atípicas detectadas: 17
+00:12:03 INFO    Pirámide de riesgo: nivel 3 = 9,6 % de los pacientes y 28,2 % del gasto
+00:12:03 INFO    Costo pronosticado próximos 6 meses: $ 378.972.864
+00:12:03 INFO    Backtest costo: MAPE 5,5 % (ingenuo estacional 7,5 %)
 00:12:07 INFO    Excel: output/reporte_eps.xlsx
 ```
 
@@ -274,6 +282,8 @@ $ eps-analytics report
 | Top Medicamentos | Formulaciones, unidades, costo total y unitario |
 | Consultas Atípicas | Consultas que superan el umbral de Tukey |
 | Pacientes Alto Costo | Percentil 99 de gasto acumulado |
+| Pirámide de Riesgo | Pacientes y gasto por nivel, más la validación prospectiva |
+| Pacientes por Riesgo | Puntaje, nivel y factores explicativos de cada paciente |
 | Detalle | Una fila por consulta, con filtros |
 
 ## Decisiones técnicas
@@ -286,11 +296,15 @@ $ eps-analytics report
   Tukey sobre valores lineales, casi toda consulta de urgencias saldría como atípica. Sobre
   `log(costo)` con k = 3 se detectan los eventos realmente excepcionales.
 - **Pronóstico como frecuencia × severidad.** Con solo 24 meses, un modelo con un efecto por mes
-  toma un evento de alto costo aislado como si fuera "estacionalidad". La primera versión cometía
-  ese error y en el backtest quedaba peor que el ingenuo (14,6 % frente a 9,4 % de MAPE).
-  Separar el volumen, que sí es estacional, del costo promedio, que se proyecta con una
-  tendencia robusta, bajó el error a 6,4 %. Los intervalos se calculan en escala logarítmica, así
+  toma un evento de alto costo aislado como si fuera "estacionalidad". Modelar el costo total
+  directamente con efectos mensuales no mejora al ingenuo estacional (7,6 % frente a 7,5 % de
+  MAPE). Separar el volumen, que sí es estacional, del costo promedio, que se proyecta con una
+  tendencia robusta, bajó el error a 5,5 %. Los intervalos se calculan en escala logarítmica, así
   que son asimétricos y nunca negativos.
+- **Riesgo explicable antes que una caja negra.** Un puntaje por reglas, con factores legibles, se
+  puede auditar y discutir con el equipo médico. Su utilidad se comprueba con una validación
+  prospectiva sin fuga de información: se estratifica con la primera mitad del periodo y se mide el
+  gasto de la segunda.
 - **Mediana junto a la media.** Con colas largas, la media sola engaña, así que el reporte muestra
   ambas.
 - **Funciones puras.** `analysis.py` no hace E/S, lo que permite probarlo con DataFrames pequeños
@@ -309,7 +323,7 @@ $ eps-analytics report
 
 ```bash
 pip install -r requirements-dev.txt
-pytest --cov            # 53 pruebas, 98 % de cobertura
+pytest --cov            # 61 pruebas, 98 % de cobertura
 ruff check . && ruff format --check .
 ```
 
@@ -318,6 +332,8 @@ Las pruebas cubren:
 - Integridad referencial y dominios válidos de los datos generados.
 - Reproducibilidad con la misma semilla.
 - KPIs verificados contra valores calculados a mano.
+- Pirámide de riesgo: puntajes calculados a mano, forma de pirámide y validación prospectiva
+  monótona sin datos futuros.
 - Pronóstico: recuperación exacta de tendencia y estacionalidad conocidas, robustez ante eventos
   extremos e intervalos coherentes.
 - La regresión del JOIN duplicado.
@@ -339,6 +355,7 @@ AnalisisDatosEps/
 │   ├── synthetic.py        # generador de datos realistas
 │   ├── analysis.py         # KPIs y agregaciones (funciones puras)
 │   ├── forecast.py         # pronóstico frecuencia × severidad con backtest
+│   ├── riesgo.py           # pirámide de riesgo explicable
 │   ├── formatting.py       # formato de moneda y porcentajes (es-CO)
 │   └── reporting/
 │       ├── excel.py        # reporte multi-hoja con gráficos nativos
@@ -354,7 +371,7 @@ AnalisisDatosEps/
 ## Hoja de ruta
 
 - [x] Pronóstico del costo mensual con intervalos y backtest.
-- [ ] Segmentación de pacientes por patrón de uso (K-Means).
+- [x] Estratificación de pacientes en una pirámide de riesgo con validación prospectiva.
 - [ ] Carga incremental desde archivos RIPS.
 - [ ] Contenedor Docker con SQL Server para un entorno de punta a punta.
 
