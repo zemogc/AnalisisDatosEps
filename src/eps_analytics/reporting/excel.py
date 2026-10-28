@@ -12,6 +12,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
 from eps_analytics.analysis import ResultadoAnalisis
+from eps_analytics.forecast import tabla_pronostico
 
 FORMATO_COP = '"$" #,##0'
 FORMATO_PCT = "0.0%"
@@ -40,7 +41,9 @@ def _formato_columna(nombre: str) -> str | None:
         return FORMATO_PCT
     if "costo" in n or "gasto" in n or "media_movil" in n:
         return FORMATO_COP
-    if n in {"pacientes", "consultas", "formulaciones", "unidades", "num_medicamentos"}:
+    if n in {"pacientes", "consultas", "formulaciones", "unidades", "num_medicamentos"} or n.startswith(
+        "consultas_"
+    ):
         return FORMATO_NUM
     return None
 
@@ -99,6 +102,17 @@ def _hoja_resumen(writer: pd.ExcelWriter, res: ResultadoAnalisis) -> None:
     fila = 5 + len(_KPIS)
     ws.cell(row=fila, column=1, value="Gasto concentrado en el 5 % de pacientes más costosos")
     ws.cell(row=fila, column=2, value=res.concentracion_top5).number_format = FORMATO_PCT
+    for nombre, etiqueta in (("Costo_Total", "costo"), ("Consultas", "consultas")):
+        pron = res.pronostico.get(nombre)
+        if pron is None or pron.mape_modelo is None:
+            continue
+        for texto, valor in (
+            (f"Error del pronóstico de {etiqueta} (MAPE, backtest)", pron.mape_modelo),
+            (f"Error del ingenuo estacional de {etiqueta} (MAPE)", pron.mape_ingenuo),
+        ):
+            fila += 1
+            ws.cell(row=fila, column=1, value=texto)
+            ws.cell(row=fila, column=2, value=valor).number_format = FORMATO_PCT
     ws.column_dimensions["A"].width = 52
     ws.column_dimensions["B"].width = 22
 
@@ -133,6 +147,8 @@ def generar_excel(res: ResultadoAnalisis, ruta: Path) -> Path:
         _hoja(writer, "Por EPS", res.por_eps)
         _hoja(writer, "Por Diagnóstico", res.por_diagnostico)
         _hoja(writer, "Tendencia Mensual", res.mensual)
+        if res.pronostico:
+            _hoja(writer, "Pronóstico", tabla_pronostico(res.pronostico))
         _hoja(writer, "Grupo Etario", res.por_grupo_etario)
         _hoja(writer, "Tipo de Atención", res.por_tipo_atencion)
         _hoja(writer, "Matriz EPS x Dx", res.matriz_eps_dx)

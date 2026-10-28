@@ -15,6 +15,7 @@ import streamlit as st
 
 from eps_analytics import analysis as an
 from eps_analytics import database, synthetic
+from eps_analytics import forecast as fc
 from eps_analytics import formatting as fmt
 from eps_analytics.config import load_settings
 
@@ -156,8 +157,16 @@ c5.metric(
     delta_arrow="off",
 )
 
-tab_res, tab_eps, tab_dx, tab_pac, tab_med, tab_datos = st.tabs(
-    ["📈 Resumen", "🏢 EPS", "🩺 Diagnósticos", "👥 Pacientes", "💊 Medicamentos", "📄 Datos"]
+tab_res, tab_eps, tab_dx, tab_pac, tab_med, tab_pron, tab_datos = st.tabs(
+    [
+        "📈 Resumen",
+        "🏢 EPS",
+        "🩺 Diagnósticos",
+        "👥 Pacientes",
+        "💊 Medicamentos",
+        "🔮 Pronóstico",
+        "📄 Datos",
+    ]
 )
 
 # ----------------------------------------------------------------- resumen
@@ -406,6 +415,82 @@ with tab_med:
         )
         der.metric("Formulaciones", fmt.numero(len(meds_f)))
         der.metric("Consultas con fórmula", fmt.porcentaje((df["Num_Medicamentos"] > 0).mean()))
+
+# ----------------------------------------------------------------- pronóstico
+with tab_pron:
+    horizonte = st.slider("Meses a pronosticar", 1, 12, 6)
+    if len(mensual) < 4:
+        st.info("Se necesitan al menos 4 meses de datos con los filtros actuales para pronosticar.")
+    else:
+        pronosticos = fc.pronosticar_mensual(mensual.set_index("Mes"), horizonte)
+        costo = pronosticos["Costo_Total"]
+        m1, m2, m3 = st.columns(3)
+        m1.metric(
+            f"Costo esperado próximos {horizonte} meses",
+            fmt.cop_compacto(costo.tabla["Pronostico"].sum()),
+        )
+        if costo.mape_modelo is not None:
+            m2.metric(
+                "Error del modelo (backtest)",
+                fmt.porcentaje(costo.mape_modelo),
+                f"ingenuo estacional {fmt.porcentaje(costo.mape_ingenuo)}",
+                delta_color="off",
+                delta_arrow="off",
+            )
+        m3.metric(
+            "Consultas esperadas",
+            fmt.numero(pronosticos["Consultas"].tabla["Pronostico"].sum()),
+        )
+
+        izq, der = st.columns(2)
+        for col, clave, titulo, prefijo in (
+            (izq, "Costo_Total", "Costo total mensual", "$ "),
+            (der, "Consultas", "Consultas por mes", ""),
+        ):
+            p = pronosticos[clave]
+            t = p.tabla
+            fig = go.Figure()
+            fig.add_scatter(
+                x=list(t.index) + list(t.index[::-1]),
+                y=list(t["Limite_Superior"]) + list(t["Limite_Inferior"][::-1]),
+                mode="lines",
+                fill="toself",
+                fillcolor="rgba(235,104,52,0.18)",
+                line={"width": 0},
+                name="Intervalo 90 %",
+                hoverinfo="skip",
+            )
+            fig.add_scatter(
+                x=p.historico.index,
+                y=p.historico,
+                mode="lines+markers",
+                name="Histórico",
+                line={"color": AZUL, "width": 2.5},
+            )
+            fig.add_scatter(
+                x=[p.historico.index[-1], *t.index],
+                y=[p.historico.iloc[-1], *t["Pronostico"]],
+                mode="lines+markers",
+                name="Pronóstico",
+                line={"color": NARANJA, "width": 2.5, "dash": "dash"},
+            )
+            fig.update_traces(
+                hovertemplate="%{x|%b %Y}<br>" + prefijo + "%{y:,.0f}<extra>%{fullData.name}</extra>"
+            )
+            fig.update_layout(title=titulo, yaxis={"tickprefix": prefijo, "rangemode": "tozero"})
+            col.plotly_chart(estilo(fig, 400), width="stretch")
+
+        st.caption(
+            "Costo = consultas (tendencia + estacionalidad mensual) × costo promedio por consulta "
+            "(tendencia robusta de Huber). El backtest reajusta el modelo sin los últimos meses y lo "
+            "compara contra lo observado y contra repetir el mismo mes del año anterior."
+        )
+        tabla = fc.tabla_pronostico(pronosticos).reset_index()
+        tabla["Mes"] = tabla["Mes"].dt.strftime("%Y-%m")
+        for columna in tabla.columns[1:]:
+            formato = fmt.cop if columna.startswith("Costo") else fmt.numero
+            tabla[columna] = tabla[columna].map(formato)
+        st.dataframe(tabla, hide_index=True, width="stretch")
 
 # ----------------------------------------------------------------- datos
 with tab_datos:
