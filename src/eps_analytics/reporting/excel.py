@@ -41,6 +41,8 @@ def _formato_columna(nombre: str) -> str | None:
         return FORMATO_PCT
     if "costo" in n or "gasto" in n or "media_movil" in n:
         return FORMATO_COP
+    if "promedio" in n:
+        return FORMATO_DEC
     if n in {"pacientes", "consultas", "formulaciones", "unidades", "num_medicamentos"} or n.startswith(
         "consultas_"
     ):
@@ -155,6 +157,23 @@ def generar_excel(res: ResultadoAnalisis, ruta: Path) -> Path:
         _hoja(writer, "Top Medicamentos", res.medicamentos)
         _hoja(writer, "Consultas Atípicas", res.atipicos, index=False)
         _hoja(writer, "Pacientes Alto Costo", res.alto_costo, index=False)
+        if not res.estratos.empty:
+            _hoja(writer, "Pirámide de Riesgo", res.piramide)
+            if not res.validacion_riesgo.empty:
+                ws = writer.sheets["Pirámide de Riesgo"]
+                fila = len(res.piramide) + 4
+                ws.cell(row=fila - 1, column=1, value="Validación prospectiva: gasto del periodo siguiente")
+                ws.cell(row=fila - 1, column=1).font = Font(bold=True)
+                validacion = res.validacion_riesgo.reset_index()
+                validacion.to_excel(writer, sheet_name="Pirámide de Riesgo", startrow=fila - 1, index=False)
+                for celda in ws[fila]:
+                    celda.fill, celda.font = _RELLENO_ENCABEZADO, _FUENTE_ENCABEZADO
+                for gasto, razon in ws.iter_rows(
+                    min_row=fila + 1, max_row=fila + len(validacion), min_col=3, max_col=4
+                ):
+                    gasto.number_format, razon.number_format = FORMATO_COP, '0.00"x"'
+            estratos = res.estratos.assign(Cronicas=res.estratos["Cronicas"].map(", ".join))
+            _hoja(writer, "Pacientes por Riesgo", estratos)
         _hoja(writer, "Detalle", detalle, index=False)
         _hoja_resumen(writer, res)
         # La matriz es de costos aunque sus columnas sean nombres de EPS

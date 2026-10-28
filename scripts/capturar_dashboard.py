@@ -18,13 +18,15 @@ from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.ui import WebDriverWait
 
 DESTINO = Path(__file__).resolve().parents[1] / "docs" / "images"
-PESTANAS = {
-    "Pronóstico": "dashboard_pronostico.png",
-    "Resumen": "dashboard_resumen.png",
-    "EPS": "dashboard_eps.png",
-    "Diagnósticos": "dashboard_diagnosticos.png",
-    "Pacientes": "dashboard_pacientes.png",
-}
+# (pestaña, archivo, texto de la sección a la que se desplaza antes de capturar)
+CAPTURAS = [
+    ("Resumen", "dashboard_resumen.png", None),
+    ("EPS", "dashboard_eps.png", None),
+    ("Diagnósticos", "dashboard_diagnosticos.png", None),
+    ("Pacientes", "dashboard_pacientes.png", None),
+    ("Pacientes", "dashboard_riesgo.png", "Pirámide de riesgo"),
+    ("Pronóstico", "dashboard_pronostico.png", None),
+]
 
 
 def esperar_render(driver: webdriver.Chrome, segundos: float = 3.0) -> None:
@@ -54,12 +56,16 @@ def main() -> None:
     try:
         driver.get(args.url)
         esperar_render(driver, 5)
-        for pestana, archivo in PESTANAS.items():
+        for pestana, archivo, seccion in CAPTURAS:
             boton = driver.find_element(
                 By.XPATH, f"//*[@role='tab' and contains(normalize-space(.), '{pestana}')]"
             )
             boton.click()
             time.sleep(3)
+            if seccion:
+                titulo = driver.find_element(By.XPATH, f"//h3[contains(normalize-space(.), '{seccion}')]")
+                driver.execute_script("arguments[0].scrollIntoView({block: 'start'});", titulo)
+                time.sleep(1.5)
             driver.save_screenshot(str(DESTINO / archivo))
             print(f"Captura: {DESTINO / archivo}")
     finally:
