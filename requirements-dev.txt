@@ -1,0 +1,2 @@
+-e .[dashboard,dev]
+selenium>=4.20  # solo para scripts/capturar_dashboard.py

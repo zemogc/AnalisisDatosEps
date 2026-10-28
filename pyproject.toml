@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eps-analytics"
+version = "2.0.0"
+description = "Análisis de costos de atención en salud por EPS: ETL desde SQL Server/SQLite, KPIs, reportes Excel y dashboard interactivo."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Zemog Gomez" }]
+keywords = ["eps", "salud", "colombia", "pandas", "sql-server", "streamlit", "data-analysis"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+dependencies = [
+    "pandas>=2.1",
+    "numpy>=1.26",
+    "SQLAlchemy>=2.0",
+    "matplotlib>=3.8",
+    "openpyxl>=3.1",
+]
+
+[project.optional-dependencies]
+dashboard = ["streamlit>=1.35", "plotly>=5.20"]
+sqlserver = ["pyodbc>=5.0"]
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.5"]
+
+[project.scripts]
+eps-analytics = "eps_analytics.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "PD"]
+
+[tool.coverage.run]
+source = ["eps_analytics"]
