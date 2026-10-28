@@ -1,0 +1,53 @@
+# Entorno completo: SQL Server 2022 + esquema T-SQL + dashboard.
+#   docker compose up --build        -> http://localhost:8501
+#   docker compose run --rm app eps-analytics report -o /app/output
+
+x-sa-password: &sa-password ${MSSQL_SA_PASSWORD:-EpsDemo2026Local}
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: *sa-password
+      MSSQL_PID: Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -b -Q 'SELECT 1' -o /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+
+  # Crea la base, las tablas con sus restricciones e índices, y las vistas analíticas
+  init-db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      MSSQL_SA_PASSWORD: *sa-password
+    volumes:
+      - ./sql:/sql:ro
+      - ./docker/init-db.sh:/init-db.sh:ro
+    entrypoint: ["/bin/bash", "/init-db.sh"]
+    restart: "no"
+
+  app:
+    build: .
+    depends_on:
+      init-db:
+        condition: service_completed_successfully
+    environment:
+      MSSQL_SA_PASSWORD: *sa-password
+      EPS_DB_URL: mssql+pyodbc://sa:${MSSQL_SA_PASSWORD:-EpsDemo2026Local}@sqlserver:1433/ProyectoEPS?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./output:/app/output
+
+volumes:
+  mssql-data:

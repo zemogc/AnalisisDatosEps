@@ -21,7 +21,9 @@ from sqlalchemy import (
     String,
     Table,
     create_engine,
+    func,
     inspect,
+    select,
     text,
 )
 
@@ -118,13 +120,28 @@ def get_engine(db_url: str) -> Engine:
     """Crea el engine; para SQLite garantiza que exista la carpeta del archivo."""
     if db_url.startswith("sqlite:///") and db_url != "sqlite:///:memory:":
         Path(db_url.removeprefix("sqlite:///")).parent.mkdir(parents=True, exist_ok=True)
-    return create_engine(db_url, future=True)
+    if db_url.startswith("mssql+pyodbc"):
+        # Inserciones por lotes en el driver: de minutos a segundos en cargas grandes
+        return create_engine(db_url, fast_executemany=True)
+    return create_engine(db_url)
 
 
 def crear_esquema(engine: Engine, reset: bool = False) -> None:
     if reset:
         metadata.drop_all(engine)
     metadata.create_all(engine)
+
+
+def vaciar_tablas(engine: Engine) -> None:
+    """Borra los registros sin tocar el DDL (conserva CHECK, índices y vistas de sql/)."""
+    with engine.begin() as conn:
+        for tabla in reversed(metadata.sorted_tables):
+            conn.execute(tabla.delete())
+
+
+def tiene_datos(engine: Engine) -> bool:
+    with engine.connect() as conn:
+        return conn.execute(select(func.count()).select_from(pacientes)).scalar_one() > 0
 
 
 def esquema_existe(engine: Engine) -> bool:
