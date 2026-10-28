@@ -37,7 +37,8 @@ def _seed(args: argparse.Namespace) -> int:
     from eps_analytics import database, synthetic
 
     with _engine() as engine:
-        if database.esquema_existe(engine) and not args.reset:
+        existe = database.esquema_existe(engine)
+        if existe and database.tiene_datos(engine) and not args.reset:
             log.error("La base ya tiene datos. Usa --reset para regenerarla.")
             return 1
         tablas = synthetic.generar_datos(
@@ -46,7 +47,11 @@ def _seed(args: argparse.Namespace) -> int:
             inicio=date.fromisoformat(args.desde),
             fin=date.fromisoformat(args.hasta),
         )
-        database.crear_esquema(engine, reset=args.reset)
+        if existe:
+            # Respeta el esquema existente (p. ej. el creado con sql/01_schema.sql)
+            database.vaciar_tablas(engine)
+        else:
+            database.crear_esquema(engine)
         database.cargar_tablas(engine, tablas)
         destino = engine.url.render_as_string(hide_password=True).replace("%3A", ":")
     resumen = ", ".join(f"{k}: {fmt.numero(len(v))}" for k, v in tablas.items())
@@ -61,8 +66,8 @@ def _report(args: argparse.Namespace) -> int:
 
     salida = Path(args.output) if args.output else load_settings().output_dir
     with _engine() as engine:
-        if not database.esquema_existe(engine):
-            log.error("No existen las tablas del modelo. Ejecuta primero: eps-analytics seed")
+        if not database.esquema_existe(engine) or not database.tiene_datos(engine):
+            log.error("La base no tiene datos. Ejecuta primero: eps-analytics seed")
             return 1
         res = ejecutar_analisis(database.cargar_dataset(engine), database.cargar_medicamentos(engine))
 
@@ -124,7 +129,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_seed.add_argument("--seed", type=int, default=42, help="Semilla aleatoria (reproducible)")
     p_seed.add_argument("--desde", default="2024-01-01", help="Fecha inicial (AAAA-MM-DD)")
     p_seed.add_argument("--hasta", default="2025-12-31", help="Fecha final (AAAA-MM-DD)")
-    p_seed.add_argument("--reset", action="store_true", help="Elimina y recrea las tablas")
+    p_seed.add_argument("--reset", action="store_true", help="Reemplaza los datos existentes")
     p_seed.set_defaults(func=_seed)
 
     p_rep = sub.add_parser("report", help="Genera el reporte Excel y los gráficos")

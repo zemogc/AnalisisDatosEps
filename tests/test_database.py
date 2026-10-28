@@ -50,3 +50,12 @@ def test_get_engine_crea_carpeta_sqlite(tmp_path):
     ruta = tmp_path / "anidada" / "demo.db"
     database.get_engine(f"sqlite:///{ruta.as_posix()}").dispose()
     assert ruta.parent.is_dir()
+
+
+def test_vaciar_tablas_conserva_el_esquema(tablas, engine_vacio):
+    database.crear_esquema(engine_vacio)
+    database.cargar_tablas(engine_vacio, tablas)
+    assert database.tiene_datos(engine_vacio)
+    database.vaciar_tablas(engine_vacio)
+    assert database.esquema_existe(engine_vacio)
+    assert not database.tiene_datos(engine_vacio)

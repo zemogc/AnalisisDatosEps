@@ -80,3 +80,18 @@ def test_cli_seed_y_report(tmp_path, monkeypatch):
 def test_cli_report_sin_base(tmp_path, monkeypatch):
     monkeypatch.setenv("EPS_DB_URL", f"sqlite:///{(tmp_path / 'vacia.db').as_posix()}")
     assert main(["report", "-o", str(tmp_path)]) == 1
+
+
+def test_cli_seed_respeta_esquema_existente_vacio(tmp_path, monkeypatch):
+    """Caso SQL Server: las tablas ya las creó sql/01_schema.sql y están vacías."""
+    url = f"sqlite:///{(tmp_path / 'esquema.db').as_posix()}"
+    monkeypatch.setenv("EPS_DB_URL", url)
+    eng = database.get_engine(url)
+    database.crear_esquema(eng)
+    assert main(["report", "-o", str(tmp_path)]) == 1  # tablas vacías: error claro, no excepción
+    assert main(["seed", "--pacientes", "50", "--desde", "2024-01-01", "--hasta", "2024-06-30"]) == 0
+    assert database.tiene_datos(eng)
+    assert (
+        main(["seed", "--reset", "--pacientes", "40", "--desde", "2024-01-01", "--hasta", "2024-06-30"]) == 0
+    )
+    eng.dispose()
