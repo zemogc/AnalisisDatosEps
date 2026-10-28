@@ -1,0 +1,3 @@
+# Instala el paquete con todas sus dependencias de ejecución y el dashboard.
+# Equivalente a: pip install -e ".[dashboard]"
+-e .[dashboard]

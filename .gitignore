@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Datos y salidas generadas
+data/
+output/
+*.db
+*.xlsx
+!docs/**/*.xlsx
+
+# Entorno local
+.env
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
