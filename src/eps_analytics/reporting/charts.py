@@ -224,6 +224,66 @@ def grafico_distribucion(res: ResultadoAnalisis, ruta: Path) -> Path:
     return _guardar(fig, ruta)
 
 
+def grafico_pronostico(res: ResultadoAnalisis, ruta: Path) -> Path:
+    fig, ejes = plt.subplots(2, 1, figsize=(11, 6.8), sharex=True)
+    paneles = [
+        ("Consultas", "Consultas por mes: histórico y pronóstico", None),
+        ("Costo_Total", "Costo total por mes: histórico y pronóstico", _COP_EJE),
+    ]
+    for ax, (clave, titulo, formato) in zip(ejes, paneles, strict=True):
+        p = res.pronostico[clave]
+        tabla = p.tabla
+        ax.plot(
+            p.historico.index,
+            p.historico,
+            color=AZUL,
+            linewidth=2,
+            marker="o",
+            markersize=3.5,
+            label="Histórico",
+        )
+        # El pronóstico arranca en el último dato observado para que la línea sea continua
+        x = [p.historico.index[-1], *tabla.index]
+        ax.plot(
+            x,
+            [p.historico.iloc[-1], *tabla["Pronostico"]],
+            color=NARANJA,
+            linewidth=2,
+            linestyle="--",
+            marker="o",
+            markersize=3.5,
+            markevery=list(range(1, len(x))),
+            label="Pronóstico",
+        )
+        ax.fill_between(
+            tabla.index,
+            tabla["Limite_Inferior"],
+            tabla["Limite_Superior"],
+            color=NARANJA,
+            alpha=0.18,
+            linewidth=0,
+            label="Intervalo 90 %",
+        )
+        ax.axvline(p.historico.index[-1], color=TEXT_2, linewidth=0.8, linestyle=":")
+        if p.mape_modelo is not None:
+            ax.text(
+                0.01,
+                0.06,
+                f"Backtest 6 meses · MAPE {fmt.porcentaje(p.mape_modelo)} "
+                f"(ingenuo estacional {fmt.porcentaje(p.mape_ingenuo)})",
+                transform=ax.transAxes,
+                fontsize=8.5,
+                color=TEXT_2,
+            )
+        ax.set_title(titulo)
+        ax.set_ylim(0, max(p.historico.max(), tabla["Limite_Superior"].max()) * 1.12)
+        ax.grid(axis="x", visible=False)
+        if formato:
+            ax.yaxis.set_major_formatter(formato)
+    ejes[0].legend(loc="upper left", ncols=3)
+    return _guardar(fig, ruta)
+
+
 GRAFICOS = {
     "costo_por_eps.png": grafico_costo_eps,
     "costo_por_diagnostico.png": grafico_costo_diagnostico,
@@ -231,10 +291,15 @@ GRAFICOS = {
     "costo_grupo_etario_sexo.png": grafico_grupo_etario,
     "heatmap_eps_diagnostico.png": grafico_heatmap,
     "distribucion_costos.png": grafico_distribucion,
+    "pronostico_mensual.png": grafico_pronostico,
 }
 
 
 def generar_graficos(res: ResultadoAnalisis, carpeta: Path) -> list[Path]:
     _estilo()
     carpeta.mkdir(parents=True, exist_ok=True)
-    return [funcion(res, carpeta / nombre) for nombre, funcion in GRAFICOS.items()]
+    return [
+        funcion(res, carpeta / nombre)
+        for nombre, funcion in GRAFICOS.items()
+        if funcion is not grafico_pronostico or res.pronostico
+    ]

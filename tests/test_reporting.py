@@ -19,6 +19,7 @@ def test_excel_tiene_todas_las_hojas(resultado, tmp_path):
     libro = load_workbook(ruta)
     assert libro.sheetnames[0] == "Resumen"
     assert {"Por EPS", "Por Diagnóstico", "Tendencia Mensual", "Detalle"} <= set(libro.sheetnames)
+    assert "Pronóstico" in libro.sheetnames
     assert len(libro["Resumen"]._charts) == 2
     assert libro["Detalle"].max_row == resultado.kpis["consultas"] + 1
 

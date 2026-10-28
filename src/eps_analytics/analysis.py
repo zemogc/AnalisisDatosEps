@@ -6,7 +6,7 @@ el reporte por línea de comandos, en el dashboard y en las pruebas.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
@@ -173,10 +173,14 @@ class ResultadoAnalisis:
     atipicos: pd.DataFrame
     alto_costo: pd.DataFrame
     concentracion_top5: float
+    pronostico: dict = field(default_factory=dict)
 
 
-def ejecutar_analisis(consultas: pd.DataFrame, meds: pd.DataFrame) -> ResultadoAnalisis:
+def ejecutar_analisis(consultas: pd.DataFrame, meds: pd.DataFrame, horizonte: int = 6) -> ResultadoAnalisis:
+    from eps_analytics.forecast import pronosticar_mensual
+
     df = preparar(consultas)
+    mensual = tendencia_mensual(df)
     return ResultadoAnalisis(
         datos=df,
         kpis=calcular_kpis(df),
@@ -184,10 +188,11 @@ def ejecutar_analisis(consultas: pd.DataFrame, meds: pd.DataFrame) -> ResultadoA
         por_diagnostico=costos_por_diagnostico(df),
         por_grupo_etario=costos_por_grupo_etario(df),
         por_tipo_atencion=costos_por_tipo_atencion(df),
-        mensual=tendencia_mensual(df),
+        mensual=mensual,
         matriz_eps_dx=matriz_eps_diagnostico(df),
         medicamentos=top_medicamentos(meds, n=15),
         atipicos=detectar_atipicos(df),
         alto_costo=pacientes_alto_costo(df),
         concentracion_top5=concentracion_gasto(df, 0.05),
+        pronostico=pronosticar_mensual(mensual, horizonte) if len(mensual) >= 4 else {},
     )

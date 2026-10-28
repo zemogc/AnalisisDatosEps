@@ -19,6 +19,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 DESTINO = Path(__file__).resolve().parents[1] / "docs" / "images"
 PESTANAS = {
+    "Pronóstico": "dashboard_pronostico.png",
     "Resumen": "dashboard_resumen.png",
     "EPS": "dashboard_eps.png",
     "Diagnósticos": "dashboard_diagnosticos.png",
