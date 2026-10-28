@@ -11,7 +11,8 @@ ETL desde SQL Server o SQLite · KPIs y estadística · pirámide de riesgo · p
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-D71F00?logo=sqlalchemy&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-dashboard-FF4B4B?logo=streamlit&logoColor=white)
 ![Plotly](https://img.shields.io/badge/Plotly-interactivo-3F4F75?logo=plotly&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-61%20passed-2ea44f)
+![Docker](https://img.shields.io/badge/Docker-compose-2496ED?logo=docker&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-63%20passed-2ea44f)
 ![Coverage](https://img.shields.io/badge/coverage-98%25-2ea44f)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
@@ -188,12 +189,32 @@ referencia en T-SQL.
 
 ## Inicio rápido
 
-Requisitos: **Python 3.10 o superior**. No necesitas SQL Server para probarlo.
+### Opción A: Docker con SQL Server real (un solo comando)
 
 ```bash
 git clone https://github.com/zemogc/AnalisisDatosEps.git
 cd AnalisisDatosEps
+docker compose up --build     # SQL Server 2022 + esquema T-SQL + datos + dashboard
+```
 
+Abre <http://localhost:8501>. Compose hace todo el recorrido:
+
+1. Levanta SQL Server 2022.
+2. Ejecuta `sql/01_schema.sql` y `sql/02_vistas.sql`, solo la primera vez.
+3. Carga los datos de demostración.
+4. Inicia el dashboard.
+
+Los datos persisten en un volumen. Para generar el reporte contra SQL Server:
+
+```bash
+docker compose run --rm app eps-analytics report -o /app/output   # queda en ./output
+```
+
+### Opción B: Python local con SQLite
+
+Requisitos: **Python 3.10 o superior**. No necesitas SQL Server.
+
+```bash
 python -m venv .venv
 # Windows
 .venv\Scripts\activate
@@ -235,6 +256,14 @@ eps-analytics dashboard   # abre http://localhost:8501
    con `eps-analytics report`.
 
 En [`.env.example`](.env.example) están todas las variables reconocidas.
+
+> [!IMPORTANT]
+> Usa **ODBC Driver 17 o 18 for SQL Server**. El driver heredado de Windows (`SQL Server`) no es
+> compatible con SQLAlchemy 2.
+
+Si las tablas ya existen (creadas con los scripts T-SQL), `seed` las llena sin recrearlas. Así
+se conservan las restricciones `CHECK`, los índices y las vistas. Con `--reset` reemplaza los
+datos sin tocar el DDL.
 
 ## Línea de comandos
 
@@ -309,9 +338,11 @@ $ eps-analytics report
   ambas.
 - **Funciones puras.** `analysis.py` no hace E/S, lo que permite probarlo con DataFrames pequeños
   calculados a mano.
-- **Un motor, dos bases.** SQLAlchemy Core define el esquema una sola vez. SQLite permite
-  ejecutar las pruebas sin infraestructura, y el T-SQL de `sql/` documenta el despliegue real con
-  restricciones `CHECK` e índices de cobertura.
+- **Un motor, dos bases, verificado en ambas.** SQLAlchemy Core define el esquema una sola vez.
+  SQLite permite ejecutar las pruebas sin infraestructura. Las pruebas de integración corren
+  contra SQL Server 2022 en Docker y comprueban que **los KPIs son idénticos en los dos motores**
+  y que las restricciones `CHECK` del T-SQL se aplican. La vista `vw_ResumenEPS` y el Pareto en
+  T-SQL coinciden al peso con el cálculo en Python.
 - **Visualización responsable.** La paleta está validada para daltonismo. No hay gráficos de doble
   eje: la tendencia usa dos paneles con el eje X compartido. El heatmap usa escala logarítmica para
   que un caso extremo no aplane el resto, y las cifras van en formato colombiano
@@ -323,7 +354,7 @@ $ eps-analytics report
 
 ```bash
 pip install -r requirements-dev.txt
-pytest --cov            # 61 pruebas, 98 % de cobertura
+pytest --cov            # 63 pruebas, 98 % de cobertura (2 de integración se omiten sin SQL Server)
 ruff check . && ruff format --check .
 ```
 
@@ -338,7 +369,9 @@ Las pruebas cubren:
   extremos e intervalos coherentes.
 - La regresión del JOIN duplicado.
 - Contenido y formato del Excel y generación de los gráficos.
-- El flujo completo de la CLI (`seed` → `report`).
+- El flujo completo de la CLI (`seed` → `report`), incluido un esquema existente vacío.
+- Integración con SQL Server real (`tests/test_sqlserver.py`): resultados idénticos a SQLite y
+  restricciones del esquema. Se activa con `EPS_TEST_MSSQL_URL`; ver el docstring del archivo.
 
 Las capturas de este README se regeneran con
 [`scripts/capturar_dashboard.py`](scripts/capturar_dashboard.py), que usa Selenium con Chrome en
@@ -362,6 +395,9 @@ AnalisisDatosEps/
 │       └── charts.py       # gráficos PNG
 ├── dashboard/app.py        # dashboard Streamlit + Plotly
 ├── sql/                    # esquema, vistas y consultas T-SQL
+├── docker/                 # entrypoint e inicialización de SQL Server
+├── Dockerfile              # app + ODBC Driver 18
+├── docker-compose.yml      # SQL Server 2022 + init + dashboard
 ├── tests/                  # pruebas con pytest
 ├── scripts/                # utilidades (capturas de pantalla)
 ├── docs/images/            # imágenes del README
@@ -373,7 +409,7 @@ AnalisisDatosEps/
 - [x] Pronóstico del costo mensual con intervalos y backtest.
 - [x] Estratificación de pacientes en una pirámide de riesgo con validación prospectiva.
 - [ ] Carga incremental desde archivos RIPS.
-- [ ] Contenedor Docker con SQL Server para un entorno de punta a punta.
+- [x] Contenedor Docker con SQL Server para un entorno de punta a punta.
 
 ## Autor
 

@@ -1,0 +1,14 @@
+.git
+.venv
+venv
+data
+output
+docs
+tests
+scripts
+**/__pycache__
+.pytest_cache
+.ruff_cache
+.coverage
+*.db
+*.xlsx
