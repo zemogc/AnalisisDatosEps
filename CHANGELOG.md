@@ -3,6 +3,28 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
 [versionado semántico](https://semver.org/lang/es/).
 
+## [3.0.0] - 2026-11-25
+
+### Cambiado
+
+- Arquitectura hexagonal. El paquete se organiza en `dominio/` (indicadores, riesgo, pronóstico),
+  `aplicacion/` (puertos y casos de uso) y `adaptadores/` (persistencia, generador sintético,
+  reportes, formato y CLI), conectados en `contenedor.py`.
+- La CLI y el dashboard dejan de hablar con la base de datos: usan los casos de uso
+  `PoblarBaseDemo`, `GenerarReporte` y `CargarDatosTablero`.
+- Rutas de importación nuevas, por ejemplo `eps_analytics.dominio.indicadores` (antes
+  `eps_analytics.analysis`) y `eps_analytics.adaptadores.persistencia` (antes
+  `eps_analytics.database`). El comando `eps-analytics` no cambia.
+- Dashboard rediseñado: encabezado con el periodo y el alcance de la selección, tarjetas de
+  indicadores, hallazgos clave calculados con los filtros, pestañas tipo píldora y hoja de estilos
+  propia (`dashboard/estilos.css`).
+- El dashboard siembra la base demo también cuando el esquema existe pero está vacío.
+
+### Agregado
+
+- `tests/test_arquitectura.py`: verifica las reglas de dependencia entre capas.
+- `tests/test_casos_uso.py`: casos de uso probados con un repositorio en memoria.
+
 ## [2.0.0] - 2026-10-28
 
 Reescritura completa del proyecto universitario original como un sistema de análisis instalable,
