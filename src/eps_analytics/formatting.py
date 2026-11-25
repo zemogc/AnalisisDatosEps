@@ -19,9 +19,10 @@ def cop(valor: float) -> str:
 def cop_compacto(valor: float) -> str:
     """$ 1,7 MM (miles de millones), $ 85,3 M (millones) o $ 950 mil."""
     a = abs(valor)
-    if a >= 1e9:
+    # La unidad se decide con el valor ya redondeado: si no, 999.960.000 saldría "1.000,0 M".
+    if a >= 1e9 or round(a / 1e6, 1) >= 1000:
         return f"$ {numero(valor / 1e9, 2)} MM"
-    if a >= 1e6:
+    if a >= 1e6 or round(a / 1e3) >= 1000:
         return f"$ {numero(valor / 1e6, 1)} M"
     if a >= 1e3:
         return f"$ {numero(valor / 1e3, 0)} mil"
