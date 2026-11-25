@@ -5,6 +5,7 @@
 **Análisis de costos de atención en salud por EPS en Colombia**
 ETL desde SQL Server o SQLite · KPIs y estadística · pirámide de riesgo · pronóstico · reporte Excel automatizado · dashboard interactivo
 
+[![CI](https://github.com/zemogc/AnalisisDatosEps/actions/workflows/ci.yml/badge.svg)](https://github.com/zemogc/AnalisisDatosEps/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![pandas](https://img.shields.io/badge/pandas-2.x-150458?logo=pandas&logoColor=white)
 ![SQL Server](https://img.shields.io/badge/SQL%20Server-T--SQL-CC2927?logo=microsoftsqlserver&logoColor=white)
