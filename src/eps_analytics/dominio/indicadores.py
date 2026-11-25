@@ -11,6 +11,9 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
+from eps_analytics.dominio import riesgo
+from eps_analytics.dominio.pronostico import pronosticar_mensual
+
 GRUPOS_ETARIOS = ["0-17", "18-29", "30-44", "45-59", "60+"]
 _CORTES_EDAD = [-1, 17, 29, 44, 59, 200]
 
@@ -180,9 +183,6 @@ class ResultadoAnalisis:
 
 
 def ejecutar_analisis(consultas: pd.DataFrame, meds: pd.DataFrame, horizonte: int = 6) -> ResultadoAnalisis:
-    from eps_analytics import riesgo
-    from eps_analytics.forecast import pronosticar_mensual
-
     df = preparar(consultas)
     mensual = tendencia_mensual(df)
     estratos = riesgo.estratificar(df)

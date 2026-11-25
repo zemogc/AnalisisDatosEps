@@ -1,6 +1,6 @@
 import pytest
 
-from eps_analytics import database
+from eps_analytics.adaptadores import persistencia as database
 
 
 def test_dataset_una_fila_por_consulta(mini_db):

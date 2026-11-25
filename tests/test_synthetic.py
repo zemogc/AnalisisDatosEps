@@ -3,7 +3,7 @@ from datetime import date
 import pandas as pd
 import pytest
 
-from eps_analytics import synthetic
+from eps_analytics.adaptadores import sinteticos as synthetic
 
 
 def test_misma_semilla_mismos_datos():

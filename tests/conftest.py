@@ -5,7 +5,8 @@ from datetime import date
 import pandas as pd
 import pytest
 
-from eps_analytics import database, synthetic
+from eps_analytics.adaptadores import persistencia as database
+from eps_analytics.adaptadores import sinteticos as synthetic
 
 
 @pytest.fixture(scope="session")

@@ -1,4 +1,4 @@
-"""Capa de acceso a datos.
+"""Adaptador de persistencia (SQL Server / SQLite) con SQLAlchemy Core.
 
 Define el modelo relacional (Pacientes, ConsultasMedicas, Medicamentos) con
 SQLAlchemy Core para que el mismo código funcione contra SQL Server en
@@ -170,3 +170,42 @@ def cargar_medicamentos(engine: Engine) -> pd.DataFrame:
         df = pd.read_sql(CONSULTA_MEDICAMENTOS, conn, parse_dates=["Fecha_Consulta"])
     df["Costo"] = df["Costo"].astype(float)
     return df
+
+
+class RepositorioSQL:
+    """Puerto RepositorioAtenciones sobre cualquier base que hable SQLAlchemy."""
+
+    def __init__(self, engine: Engine) -> None:
+        self.engine = engine
+
+    @classmethod
+    def desde_url(cls, db_url: str) -> RepositorioSQL:
+        return cls(get_engine(db_url))
+
+    def esquema_existe(self) -> bool:
+        return esquema_existe(self.engine)
+
+    def tiene_datos(self) -> bool:
+        return esquema_existe(self.engine) and tiene_datos(self.engine)
+
+    def preparar_esquema(self) -> None:
+        # Respeta un esquema existente (p. ej. el de sql/01_schema.sql con sus CHECK y vistas)
+        if esquema_existe(self.engine):
+            vaciar_tablas(self.engine)
+        else:
+            crear_esquema(self.engine)
+
+    def guardar(self, tablas: dict[str, pd.DataFrame]) -> None:
+        cargar_tablas(self.engine, tablas)
+
+    def consultas(self) -> pd.DataFrame:
+        return cargar_dataset(self.engine)
+
+    def medicamentos(self) -> pd.DataFrame:
+        return cargar_medicamentos(self.engine)
+
+    def descripcion(self) -> str:
+        return self.engine.url.render_as_string(hide_password=True).replace("%3A", ":")
+
+    def cerrar(self) -> None:
+        self.engine.dispose()

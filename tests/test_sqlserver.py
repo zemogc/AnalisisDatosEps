@@ -13,8 +13,9 @@ from datetime import date
 
 import pytest
 
-from eps_analytics import database, synthetic
-from eps_analytics.analysis import ejecutar_analisis
+from eps_analytics.adaptadores import persistencia as database
+from eps_analytics.adaptadores import sinteticos as synthetic
+from eps_analytics.dominio.indicadores import ejecutar_analisis
 
 URL = os.getenv("EPS_TEST_MSSQL_URL")
 pytestmark = pytest.mark.skipif(not URL, reason="EPS_TEST_MSSQL_URL no definida")

@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from eps_analytics import forecast as fc
+from eps_analytics.dominio import pronostico as fc
 
 
 def serie_sintetica(meses: int = 36, ruido: float = 0.0, seed: int = 0) -> pd.Series:

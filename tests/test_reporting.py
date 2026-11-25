@@ -1,12 +1,12 @@
 import pytest
 from openpyxl import load_workbook
 
-from eps_analytics import database
-from eps_analytics import formatting as fmt
-from eps_analytics.analysis import ejecutar_analisis
-from eps_analytics.cli import main
-from eps_analytics.reporting import generar_excel, generar_graficos
-from eps_analytics.reporting.charts import GRAFICOS
+from eps_analytics.adaptadores import formato as fmt
+from eps_analytics.adaptadores import persistencia as database
+from eps_analytics.adaptadores.cli import main
+from eps_analytics.adaptadores.reportes import generar_excel, generar_graficos
+from eps_analytics.adaptadores.reportes.graficos import GRAFICOS
+from eps_analytics.dominio.indicadores import ejecutar_analisis
 
 
 @pytest.fixture(scope="module")

@@ -13,11 +13,11 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from eps_analytics import analysis as an
-from eps_analytics import database, riesgo, synthetic
-from eps_analytics import forecast as fc
-from eps_analytics import formatting as fmt
-from eps_analytics.config import load_settings
+from eps_analytics.adaptadores import formato as fmt
+from eps_analytics.contenedor import contenedor
+from eps_analytics.dominio import indicadores as an
+from eps_analytics.dominio import pronostico as fc
+from eps_analytics.dominio import riesgo
 
 AZUL = "#2a78d6"
 NARANJA = "#eb6834"
@@ -45,15 +45,9 @@ st.markdown(
 
 @st.cache_data(show_spinner="Cargando datos…")
 def cargar() -> tuple[pd.DataFrame, pd.DataFrame]:
-    engine = database.get_engine(load_settings().db_url)
-    try:
-        if not database.esquema_existe(engine):
-            # Primer arranque sin base: se crea la demo para que el dashboard funcione de inmediato
-            database.crear_esquema(engine)
-            database.cargar_tablas(engine, synthetic.generar_datos())
-        return an.preparar(database.cargar_dataset(engine)), database.cargar_medicamentos(engine)
-    finally:
-        engine.dispose()
+    # Primer arranque con la base vacía: se siembra la demo para que el tablero funcione de inmediato
+    with contenedor() as app:
+        return app.cargar_tablero(sembrar_si_vacia=True).ejecutar()
 
 
 def estilo(fig: go.Figure, alto: int = 380) -> go.Figure:

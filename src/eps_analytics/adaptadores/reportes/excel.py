@@ -11,8 +11,8 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
-from eps_analytics.analysis import ResultadoAnalisis
-from eps_analytics.forecast import tabla_pronostico
+from eps_analytics.dominio.indicadores import ResultadoAnalisis
+from eps_analytics.dominio.pronostico import tabla_pronostico
 
 FORMATO_COP = '"$" #,##0'
 FORMATO_PCT = "0.0%"
@@ -182,3 +182,12 @@ def generar_excel(res: ResultadoAnalisis, ruta: Path) -> Path:
             for c in fila:
                 c.number_format = FORMATO_COP
     return ruta
+
+
+class ExportadorExcel:
+    """Puerto ExportadorReporte: libro Excel con resumen ejecutivo y una hoja por indicador."""
+
+    nombre = "Excel"
+
+    def exportar(self, res: ResultadoAnalisis, carpeta: Path) -> list[Path]:
+        return [generar_excel(res, carpeta / "reporte_eps.xlsx")]

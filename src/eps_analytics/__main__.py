@@ -1,3 +1,3 @@
-from eps_analytics.cli import main
+from eps_analytics.adaptadores.cli import main
 
 raise SystemExit(main())

@@ -397,3 +397,10 @@ def generar_datos(
     consultas = generar_consultas(rng, pacientes, inicio, fin)
     medicamentos = generar_medicamentos(rng, consultas)
     return {"Pacientes": pacientes, "ConsultasMedicas": consultas, "Medicamentos": medicamentos}
+
+
+class GeneradorSintetico:
+    """Puerto GeneradorDatos: población sintética reproducible por semilla."""
+
+    def generar(self, n_pacientes: int, seed: int, inicio: date, fin: date) -> dict[str, pd.DataFrame]:
+        return generar_datos(n_pacientes=n_pacientes, seed=seed, inicio=inicio, fin=fin)

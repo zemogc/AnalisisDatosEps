@@ -13,8 +13,8 @@ import numpy as np  # noqa: E402
 from matplotlib.colors import LinearSegmentedColormap  # noqa: E402
 from matplotlib.ticker import FuncFormatter  # noqa: E402
 
-from eps_analytics import formatting as fmt  # noqa: E402
-from eps_analytics.analysis import GRUPOS_ETARIOS, ResultadoAnalisis  # noqa: E402
+from eps_analytics.adaptadores import formato as fmt  # noqa: E402
+from eps_analytics.dominio.indicadores import GRUPOS_ETARIOS, ResultadoAnalisis  # noqa: E402
 
 SURFACE = "#fcfcfb"
 TEXT = "#0b0b0b"
@@ -346,3 +346,12 @@ def generar_graficos(res: ResultadoAnalisis, carpeta: Path) -> list[Path]:
         for nombre, funcion in GRAFICOS.items()
         if funcion is not grafico_pronostico or res.pronostico
     ]
+
+
+class ExportadorGraficos:
+    """Puerto ExportadorReporte: un PNG por gráfico de GRAFICOS."""
+
+    nombre = "Gráfico"
+
+    def exportar(self, res: ResultadoAnalisis, carpeta: Path) -> list[Path]:
+        return generar_graficos(res, carpeta / "graficos")

@@ -11,66 +11,47 @@ import argparse
 import logging
 import subprocess
 import sys
-from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
 
 from eps_analytics import __version__
-from eps_analytics import formatting as fmt
+from eps_analytics.adaptadores import formato as fmt
+from eps_analytics.aplicacion.casos_uso import BaseConDatos, BaseSinDatos, ParametrosDemo
 from eps_analytics.config import PROJECT_ROOT, load_settings
+from eps_analytics.contenedor import contenedor
 
 log = logging.getLogger("eps_analytics")
 
 
-@contextmanager
-def _engine():
-    from eps_analytics import database
-
-    engine = database.get_engine(load_settings().db_url)
-    try:
-        yield engine
-    finally:
-        engine.dispose()
-
-
 def _seed(args: argparse.Namespace) -> int:
-    from eps_analytics import database, synthetic
-
-    with _engine() as engine:
-        existe = database.esquema_existe(engine)
-        if existe and database.tiene_datos(engine) and not args.reset:
-            log.error("La base ya tiene datos. Usa --reset para regenerarla.")
+    parametros = ParametrosDemo(
+        n_pacientes=args.pacientes,
+        seed=args.seed,
+        inicio=date.fromisoformat(args.desde),
+        fin=date.fromisoformat(args.hasta),
+    )
+    with contenedor() as app:
+        try:
+            tablas = app.poblar_base.ejecutar(parametros, reemplazar=args.reset)
+        except BaseConDatos as error:
+            log.error("%s", error)
             return 1
-        tablas = synthetic.generar_datos(
-            n_pacientes=args.pacientes,
-            seed=args.seed,
-            inicio=date.fromisoformat(args.desde),
-            fin=date.fromisoformat(args.hasta),
-        )
-        if existe:
-            # Respeta el esquema existente (p. ej. el creado con sql/01_schema.sql)
-            database.vaciar_tablas(engine)
-        else:
-            database.crear_esquema(engine)
-        database.cargar_tablas(engine, tablas)
-        destino = engine.url.render_as_string(hide_password=True).replace("%3A", ":")
+        destino = app.repositorio.descripcion()
     resumen = ", ".join(f"{k}: {fmt.numero(len(v))}" for k, v in tablas.items())
     log.info("Base poblada en %s (%s)", destino, resumen)
     return 0
 
 
 def _report(args: argparse.Namespace) -> int:
-    from eps_analytics import database
-    from eps_analytics.analysis import ejecutar_analisis
-    from eps_analytics.reporting import generar_excel, generar_graficos
-
     salida = Path(args.output) if args.output else load_settings().output_dir
-    with _engine() as engine:
-        if not database.esquema_existe(engine) or not database.tiene_datos(engine):
-            log.error("La base no tiene datos. Ejecuta primero: eps-analytics seed")
+    with contenedor() as app:
+        try:
+            reporte = app.generar_reporte.ejecutar(salida)
+        except BaseSinDatos as error:
+            log.error("%s", error)
             return 1
-        res = ejecutar_analisis(database.cargar_dataset(engine), database.cargar_medicamentos(engine))
 
+    res = reporte.resultado
     k = res.kpis
     log.info("Pacientes: %s | Consultas: %s", fmt.numero(k["pacientes"]), fmt.numero(k["consultas"]))
     log.info(
@@ -102,11 +83,9 @@ def _report(args: argparse.Namespace) -> int:
                 fmt.porcentaje(costo.mape_modelo),
                 fmt.porcentaje(costo.mape_ingenuo),
             )
-
-    excel = generar_excel(res, salida / "reporte_eps.xlsx")
-    log.info("Excel: %s", excel)
-    for ruta in generar_graficos(res, salida / "graficos"):
-        log.info("Gráfico: %s", ruta)
+    for tipo, rutas in reporte.archivos.items():
+        for ruta in rutas:
+            log.info("%s: %s", tipo, ruta)
     return 0
 
 
