@@ -5,7 +5,10 @@ Ejecutar con:  eps-analytics dashboard   (o)   streamlit run dashboard/app.py
 
 from __future__ import annotations
 
+import html
 import io
+import re
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -13,6 +16,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+from eps_analytics import __version__
 from eps_analytics.adaptadores import formato as fmt
 from eps_analytics.contenedor import contenedor
 from eps_analytics.dominio import indicadores as an
@@ -28,19 +32,8 @@ COLOR_SEXO = {"Mujeres": AZUL, "Hombres": NARANJA}
 
 st.set_page_config(page_title="EPS Analytics", page_icon="🏥", layout="wide")
 
-st.markdown(
-    """
-    <style>
-      .block-container {padding-top: 2rem; padding-bottom: 2rem;}
-      [data-testid="stMetric"] {
-        background: #f6f8fb; border: 1px solid #e4e8ef; border-radius: 10px;
-        padding: 14px 16px;
-      }
-      [data-testid="stMetricValue"] {font-size: 1.55rem;}
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+ESTILOS = (Path(__file__).parent / "estilos.css").read_text(encoding="utf-8")
+st.markdown(f"<style>{ESTILOS}</style>", unsafe_allow_html=True)
 
 
 @st.cache_data(show_spinner="Cargando datos…")
@@ -50,16 +43,30 @@ def cargar() -> tuple[pd.DataFrame, pd.DataFrame]:
         return app.cargar_tablero(sembrar_si_vacia=True).ejecutar()
 
 
+def _sin_cortes(texto: str) -> str:
+    """Espacios duros dentro de cifras para que "28,2 %" o "$ 358,6 M" no se partan en dos líneas."""
+    return re.sub(r"(?<=[\d$]) (?=[\d%M]|mil)", "\u00a0", texto)
+
+
+def tarjeta(icono: str, titulo: str, texto: str, tono: str = "azul") -> str:
+    return (
+        f'<div class="insight insight-{tono}"><div class="insight-icono">{icono}</div>'
+        f'<div><div class="insight-titulo">{html.escape(titulo)}</div>'
+        f'<div class="insight-texto">{_sin_cortes(texto)}</div>'
+        "</div></div>"
+    )
+
+
 def estilo(fig: go.Figure, alto: int = 380) -> go.Figure:
     fig.update_layout(
         height=alto,
         margin={"l": 10, "r": 10, "t": 50, "b": 10},
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
-        font={"family": "Inter, Segoe UI, sans-serif", "size": 13},
-        title={"x": 0, "xanchor": "left", "font": {"size": 16}},
+        font={"family": "Inter, Segoe UI, sans-serif", "size": 13, "color": TEXTO_2},
+        title={"x": 0, "xanchor": "left", "font": {"size": 16, "color": "#0f1b2d"}},
         legend={"orientation": "h", "y": 1.08, "x": 1, "xanchor": "right", "title": None},
-        hoverlabel={"bgcolor": "white"},
+        hoverlabel={"bgcolor": "white", "bordercolor": GRID, "font": {"family": "Inter, sans-serif"}},
         bargap=0.25,
     )
     fig.update_xaxes(gridcolor=GRID, zeroline=False)
@@ -77,7 +84,12 @@ datos, meds = cargar()
 
 # ----------------------------------------------------------------- filtros
 with st.sidebar:
-    st.header("Filtros")
+    st.markdown(
+        '<div class="marca"><span class="marca-logo">✚</span><div><b>EPS Analytics</b>'
+        f"<small>v{__version__} · costos en salud</small></div></div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown("##### Filtros")
     fecha_min, fecha_max = datos["Fecha_Consulta"].min().date(), datos["Fecha_Consulta"].max().date()
     rango = st.date_input("Periodo", (fecha_min, fecha_max), min_value=fecha_min, max_value=fecha_max)
     eps_sel = st.multiselect("EPS", sorted(datos["EPS"].unique()), placeholder="Todas")
@@ -107,12 +119,22 @@ df = df[df["Edad"].between(*edad_sel)]
 meds_f = meds[meds["ID_Consulta"].isin(df["ID_Consulta"])]
 
 # ----------------------------------------------------------------- encabezado
-st.title("🏥 Costos de atención en salud por EPS")
-st.caption(
-    f"{fmt.numero(len(df))} consultas de {fmt.numero(len(datos))} · "
-    f"periodo {df['Fecha_Consulta'].min():%d/%m/%Y} – {df['Fecha_Consulta'].max():%d/%m/%Y}"
-    if not df.empty
-    else "Sin datos para los filtros seleccionados"
+if df.empty:
+    chips = ["Sin datos para los filtros seleccionados"]
+else:
+    chips = [
+        f"📅 {df['Fecha_Consulta'].min():%d/%m/%Y} – {df['Fecha_Consulta'].max():%d/%m/%Y}",
+        f"🩺 {fmt.numero(len(df))} de {fmt.numero(len(datos))} consultas",
+        f"🏢 {df['EPS'].nunique()} EPS · {df['Ciudad'].nunique()} ciudades",
+    ]
+st.markdown(
+    '<section class="hero"><div class="hero-kicker">Tablero de costos · Sistema de salud colombiano</div>'
+    "<h1>Costos de atención en salud por EPS</h1>"
+    "<p>Dónde se va el gasto, quiénes lo concentran y cuánto viene en los próximos meses.</p>"
+    '<div class="hero-chips">'
+    + "".join(f"<span>{html.escape(c)}</span>" for c in chips)
+    + "</div></section>",
+    unsafe_allow_html=True,
 )
 
 if df.empty:
@@ -149,6 +171,43 @@ c5.metric(
     "del gasto total",
     delta_color="off",
     delta_arrow="off",
+)
+
+# Hallazgos clave, calculados sobre la selección actual
+eps_top = an.costos_por_eps(df).iloc[0]
+dx_top = an.costos_por_diagnostico(df).iloc[0]
+# El índice de diagnósticos es (código CIE-10, nombre)
+nombre_dx = str(dx_top.name[-1] if isinstance(dx_top.name, tuple) else dx_top.name)
+piramide_sel = riesgo.resumen_piramide(riesgo.estratificar(df)).iloc[-1]
+i1, i2, i3 = st.columns(3)
+i1.markdown(
+    tarjeta(
+        "🏢",
+        "EPS con mayor gasto",
+        f"<b>{html.escape(str(eps_top.name))}</b> concentra {fmt.porcentaje(eps_top['Participacion'])} "
+        f"del costo, {fmt.cop_compacto(eps_top['Costo_Por_Paciente'])} por paciente.",
+    ),
+    unsafe_allow_html=True,
+)
+i2.markdown(
+    tarjeta(
+        "🩺",
+        "Diagnóstico más costoso",
+        f"<b>{html.escape(nombre_dx)}</b> suma {fmt.cop_compacto(dx_top['Costo_Total'])} "
+        f"({fmt.porcentaje(dx_top['Participacion'])} del total).",
+        "violeta",
+    ),
+    unsafe_allow_html=True,
+)
+i3.markdown(
+    tarjeta(
+        "⚠️",
+        "Riesgo alto (nivel 3)",
+        f"{fmt.porcentaje(piramide_sel['Participacion_Pacientes'])} de los pacientes explica "
+        f"<b>{fmt.porcentaje(piramide_sel['Participacion_Gasto'])}</b> del gasto.",
+        "naranja",
+    ),
+    unsafe_allow_html=True,
 )
 
 tab_res, tab_eps, tab_dx, tab_pac, tab_med, tab_pron, tab_datos = st.tabs(
@@ -578,3 +637,9 @@ with tab_datos:
         "consultas_eps.xlsx",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
+
+st.markdown(
+    '<footer class="pie">EPS Analytics v' + __version__ + " · arquitectura hexagonal · "
+    "datos 100 % sintéticos · hecho en Colombia por <b>ZemZysteM</b></footer>",
+    unsafe_allow_html=True,
+)
