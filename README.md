@@ -12,7 +12,7 @@ ETL desde SQL Server o SQLite · KPIs y estadística · pirámide de riesgo · p
 ![Streamlit](https://img.shields.io/badge/Streamlit-dashboard-FF4B4B?logo=streamlit&logoColor=white)
 ![Plotly](https://img.shields.io/badge/Plotly-interactivo-3F4F75?logo=plotly&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-compose-2496ED?logo=docker&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-63%20passed-2ea44f)
+![Tests](https://img.shields.io/badge/tests-84%20passed-2ea44f)
 ![Coverage](https://img.shields.io/badge/coverage-98%25-2ea44f)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
@@ -129,27 +129,55 @@ Con la base por defecto (2.000 pacientes, 11.389 consultas, 2024-2025):
 
 ## Arquitectura
 
+Arquitectura hexagonal (puertos y adaptadores). El núcleo no sabe si los datos vienen de SQL Server,
+de SQLite o de un generador, ni si el resultado termina en Excel, en PNG o en el dashboard.
+
 ```mermaid
 flowchart LR
-    subgraph Fuente
-        A[(SQL Server<br/>ProyectoEPS)]
-        B[(SQLite<br/>demo local)]
-        S[synthetic.py<br/>generador] -->|eps-analytics seed| B
-        S -.->|opcional| A
+    subgraph Entrada["Adaptadores de entrada"]
+        CLI[cli.py<br/>seed · report · dashboard]
+        DASH[dashboard/app.py<br/>Streamlit + Plotly]
     end
-    A & B --> D[database.py<br/>SQLAlchemy · consulta agregada]
-    D --> E[analysis.py<br/>funciones puras de KPIs]
-    E <--> P[forecast.py<br/>frecuencia × severidad]
-    E <--> R[riesgo.py<br/>pirámide de riesgo]
-    E --> F[reporting/excel.py<br/>14 hojas + gráficos nativos]
-    E --> G[reporting/charts.py<br/>8 PNG]
-    E --> H[dashboard/app.py<br/>Streamlit + Plotly]
-    C[cli.py] --> D
+    subgraph Hexagono["Núcleo"]
+        subgraph APP["aplicacion/"]
+            UC[casos_uso.py<br/>PoblarBaseDemo · AnalizarCostos<br/>GenerarReporte · CargarDatosTablero]
+            PT{{puertos.py<br/>RepositorioAtenciones<br/>GeneradorDatos · ExportadorReporte}}
+        end
+        subgraph DOM["dominio/"]
+            IND[indicadores.py<br/>KPIs y agregaciones]
+            RIE[riesgo.py<br/>pirámide de riesgo]
+            PRO[pronostico.py<br/>frecuencia × severidad]
+        end
+    end
+    subgraph Salida["Adaptadores de salida"]
+        SQL[(persistencia.py<br/>SQL Server · SQLite)]
+        SIN[sinteticos.py<br/>generador reproducible]
+        XLS[reportes/excel.py<br/>14 hojas]
+        PNG[reportes/graficos.py<br/>8 PNG]
+    end
+    CLI & DASH --> UC
+    UC --> IND
+    IND --> RIE & PRO
+    UC --> PT
+    SQL & SIN & XLS & PNG -. implementan .-> PT
+    CT[contenedor.py<br/>raíz de composición] -. conecta .-> UC
 ```
 
-El análisis no conoce la base de datos y la base de datos no conoce el análisis. `analysis.py`
-recibe y devuelve `DataFrame`, así que la CLI, el dashboard y las pruebas usan exactamente la
-misma lógica.
+| Capa | Qué contiene | Puede depender de |
+|------|--------------|-------------------|
+| `dominio/` | Indicadores, riesgo y pronóstico: funciones puras `DataFrame → DataFrame` | biblioteca estándar, numpy, pandas |
+| `aplicacion/` | Casos de uso y puertos (`Protocol`) | `dominio/` |
+| `adaptadores/` | Base de datos, generador sintético, Excel, PNG, formato es-CO y CLI | todo lo anterior |
+| `contenedor.py` | Único punto que elige qué adaptador implementa cada puerto | todo |
+
+Las reglas no dependen de la disciplina: [`tests/test_arquitectura.py`](tests/test_arquitectura.py)
+lee los `import` de cada módulo y falla si el dominio toca SQLAlchemy, openpyxl, matplotlib o
+Streamlit, o si la aplicación importa un adaptador. Los casos de uso se prueban con un repositorio
+en memoria ([`tests/test_casos_uso.py`](tests/test_casos_uso.py)), sin base de datos.
+
+**Agregar un adaptador.** Un exportador a PDF o un repositorio sobre una API solo necesita
+implementar los métodos del puerto y registrarse en `contenedor.py`; ni el dominio ni los casos de
+uso cambian.
 
 ## Modelo de datos
 
@@ -336,7 +364,7 @@ $ eps-analytics report
   gasto de la segunda.
 - **Mediana junto a la media.** Con colas largas, la media sola engaña, así que el reporte muestra
   ambas.
-- **Funciones puras.** `analysis.py` no hace E/S, lo que permite probarlo con DataFrames pequeños
+- **Funciones puras.** El dominio (`dominio/indicadores.py`, `riesgo.py`, `pronostico.py`) no hace E/S, lo que permite probarlo con DataFrames pequeños
   calculados a mano.
 - **Un motor, dos bases, verificado en ambas.** SQLAlchemy Core define el esquema una sola vez.
   SQLite permite ejecutar las pruebas sin infraestructura. Las pruebas de integración corren
@@ -354,7 +382,7 @@ $ eps-analytics report
 
 ```bash
 pip install -r requirements-dev.txt
-pytest --cov            # 63 pruebas, 98 % de cobertura (2 de integración se omiten sin SQL Server)
+pytest --cov            # 84 pruebas, 98 % de cobertura (2 de integración se omiten sin SQL Server)
 ruff check . && ruff format --check .
 ```
 
@@ -370,6 +398,7 @@ Las pruebas cubren:
 - La regresión del JOIN duplicado.
 - Contenido y formato del Excel y generación de los gráficos.
 - El flujo completo de la CLI (`seed` → `report`), incluido un esquema existente vacío.
+- Casos de uso con dobles en memoria y reglas de dependencia entre capas.
 - Integración con SQL Server real (`tests/test_sqlserver.py`): resultados idénticos a SQLite y
   restricciones del esquema. Se activa con `EPS_TEST_MSSQL_URL`; ver el docstring del archivo.
 
@@ -382,25 +411,33 @@ modo headless.
 ```text
 AnalisisDatosEps/
 ├── src/eps_analytics/
-│   ├── cli.py              # comandos seed / report / dashboard
-│   ├── config.py           # configuración por variables de entorno
-│   ├── database.py         # esquema SQLAlchemy y consultas
-│   ├── synthetic.py        # generador de datos realistas
-│   ├── analysis.py         # KPIs y agregaciones (funciones puras)
-│   ├── forecast.py         # pronóstico frecuencia × severidad con backtest
-│   ├── riesgo.py           # pirámide de riesgo explicable
-│   ├── formatting.py       # formato de moneda y porcentajes (es-CO)
-│   └── reporting/
-│       ├── excel.py        # reporte multi-hoja con gráficos nativos
-│       └── charts.py       # gráficos PNG
-├── dashboard/app.py        # dashboard Streamlit + Plotly
-├── sql/                    # esquema, vistas y consultas T-SQL
-├── docker/                 # entrypoint e inicialización de SQL Server
-├── Dockerfile              # app + ODBC Driver 18
-├── docker-compose.yml      # SQL Server 2022 + init + dashboard
-├── tests/                  # pruebas con pytest
-├── scripts/                # utilidades (capturas de pantalla)
-├── docs/images/            # imágenes del README
+│   ├── dominio/                # núcleo: sin E/S ni librerías de infraestructura
+│   │   ├── indicadores.py      # KPIs y agregaciones (funciones puras)
+│   │   ├── riesgo.py           # pirámide de riesgo explicable
+│   │   └── pronostico.py       # pronóstico frecuencia × severidad con backtest
+│   ├── aplicacion/
+│   │   ├── puertos.py          # contratos: repositorio, generador, exportador
+│   │   └── casos_uso.py        # poblar base, analizar, generar reporte, cargar tablero
+│   ├── adaptadores/
+│   │   ├── persistencia.py     # SQLAlchemy: SQL Server y SQLite
+│   │   ├── sinteticos.py       # generador de datos realistas
+│   │   ├── formato.py          # moneda y porcentajes (es-CO)
+│   │   ├── cli.py              # comandos seed / report / dashboard
+│   │   └── reportes/
+│   │       ├── excel.py        # reporte multi-hoja con gráficos nativos
+│   │       └── graficos.py     # gráficos PNG
+│   ├── contenedor.py           # raíz de composición
+│   └── config.py               # configuración por variables de entorno
+├── dashboard/
+│   ├── app.py                  # dashboard Streamlit + Plotly
+│   └── estilos.css             # tema visual del dashboard
+├── sql/                        # esquema, vistas y consultas T-SQL
+├── docker/                     # entrypoint e inicialización de SQL Server
+├── Dockerfile                  # app + ODBC Driver 18
+├── docker-compose.yml          # SQL Server 2022 + init + dashboard
+├── tests/                      # pruebas con pytest
+├── scripts/                    # utilidades (capturas de pantalla)
+├── docs/images/                # imágenes del README
 └── pyproject.toml
 ```
 

@@ -1,6 +1,6 @@
 import pytest
 
-from eps_analytics import formatting as fmt
+from eps_analytics.adaptadores import formato as fmt
 
 
 def test_numero_y_cop_usan_la_convencion_colombiana():

@@ -1,8 +1,9 @@
 import pandas as pd
 import pytest
 
-from eps_analytics import analysis as an
-from eps_analytics import database, riesgo
+from eps_analytics.adaptadores import persistencia as database
+from eps_analytics.dominio import indicadores as an
+from eps_analytics.dominio import riesgo
 
 
 @pytest.fixture(scope="module")
